@@ -1,0 +1,49 @@
+# FastAPI + Server
+fastapi
+uvicorn[standard]
+uvicorn
+
+# LangGraph (agentic workflow)
+langchain
+langgraph
+langchain-core
+langchain-community
+langchain-huggingface
+langchain-groq     # if using Groq LLMs (optional)
+  # if using Gemini (optional)
+langchain-google-genai
+python-multipart
+
+# Database
+sqlalchemy
+pydantic
+langchain-chroma
+
+
+
+# PDF / Resume Processing
+pypdf
+pdfplumber
+python-docx
+pymupdf
+
+# Text Embeddings + Vectorstore
+sentence-transformers
+chromadb
+
+# Job Search (SerpAPI)
+google-search-results   # serpapi official client
+
+# Utilities
+python-dotenv
+requests
+beautifulsoup4
+numpy
+pandas
+
+# Scoring / ML (optional lightweight)
+scikit-learn
+
+# For async operations
+aiohttp
+streamlit
