@@ -1,7 +1,7 @@
 
 # 🧭 CareerPilot AI
 
-**Smart Job-Fit, Resume Improvement, ATS Matching – Powered by LangGraph + Gemini**
+**Smart Job-Fit, Resume Improvement, ATS Matching 
 
 An AI-powered job application assistant that helps job seekers find matches, improve resumes, and generate cover letters using LangGraph agentic workflows and Google Gemini AI.
 
@@ -88,6 +88,7 @@ careerPilot/
 - `POST /jobs/add` - Add job posting
 - `POST /careerpilot/analyze` - Run AI pipeline
 - `GET /applications/all` - Get application history
+
 
 
 
