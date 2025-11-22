@@ -47,3 +47,6 @@ scikit-learn
 # For async operations
 aiohttp
 streamlit
+serpapi
+google-search-results
+requests

@@ -18,6 +18,7 @@ class CareerPilotState(TypedDict, total=False):
     resume_id: str             # PDF path OR resume table ID
     job_id: str                # Selected job ID (JD source)
     search_query: Optional[str]  # For job search pipeline
+    use_serpapi: Optional[bool]
 
     # ----------------------------
     # Resume Extraction
@@ -43,6 +44,11 @@ class CareerPilotState(TypedDict, total=False):
                                   #   semantic_scores: [...]
                                   #   avg_semantic_score: float
                                   # }
+
+    # ----------------------------
+    # Job Search Results
+    # ----------------------------
+    recommended_jobs: Optional[List[Dict[str, Any]]]  # List of job recommendations from search
 
     # ----------------------------
     # Fit Scoring (ATS)

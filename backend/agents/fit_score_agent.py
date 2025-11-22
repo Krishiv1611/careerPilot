@@ -36,8 +36,9 @@ def fit_score_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     missing_skills = [s for s in job_skills if s not in resume_skills]
 
     # Simple non-LLM score to supplement LLM output
+    # Return as decimal (0.0 to 1.0) instead of percentage
     skill_match_score = round(
-        (1 - len(missing_skills) / max(len(job_skills), 1)) * 100, 2
+        (1 - len(missing_skills) / max(len(job_skills), 1)), 4
     )
 
     # -----------------------------
@@ -92,7 +93,7 @@ JOB DESCRIPTION:
 
 Return STRICT JSON ONLY:
 {{
-  "fit_score": number,
+  "fit_score": number (0-100 scale, where 0 is no match and 100 is perfect match),
   "reasoning": "...",
   "missing_skills": []
 }}
@@ -123,10 +124,25 @@ Return STRICT JSON ONLY:
         data = json.loads(raw[s:e])
 
     # -----------------------------
+    # Normalize fit_score to decimal (0.0 to 1.0)
+    # LLM might return 0-100 scale, so normalize it
+    # -----------------------------
+    fit_score_raw = float(data.get("fit_score", 0))
+    
+    # If score is > 1, assume it's on 0-100 scale and normalize
+    if fit_score_raw > 1.0:
+        overall_fit_score = round(fit_score_raw / 100.0, 4)
+    else:
+        overall_fit_score = round(fit_score_raw, 4)
+    
+    # Ensure it's between 0 and 1
+    overall_fit_score = max(0.0, min(1.0, overall_fit_score))
+
+    # -----------------------------
     # Add to state
     # -----------------------------
     return {
-        "overall_fit_score": float(data.get("fit_score", 0)),
+        "overall_fit_score": overall_fit_score,
         "skill_match_score": skill_match_score,
         "missing_skills": data.get("missing_skills", missing_skills),
         "fit_explanation": data.get("reasoning", "")

@@ -23,3 +23,11 @@ def get_jobs():
 def get_applications():
     res = requests.get(f"{BASE_URL}/applications/all")
     return res.json()
+
+def get_job_by_id(job_id):
+    """Get a specific job by ID"""
+    jobs = get_jobs()
+    for job in jobs:
+        if job.get("id") == job_id:
+            return job
+    return None

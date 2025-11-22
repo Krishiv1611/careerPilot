@@ -77,31 +77,40 @@ class CareerPilotRequest(BaseModel):
     resume_id: str                  # path or resume DB ID
     job_id: Optional[str] = None
     search_query: Optional[str] = None
+    use_serpapi: Optional[bool] = False  # Flag to use SerpAPI for job search
 
 
 class CareerPilotResponse(BaseModel):
     # Resume
-    resume_text: Optional[str]
-    extracted_skills: Optional[List[str]]
-    skill_categories: Optional[Dict[str, List[str]]]
+    resume_text: Optional[str] = None
+    extracted_skills: Optional[List[str]] = None
+    skill_categories: Optional[Dict[str, List[str]]] = None
 
     # Job
-    job_id: Optional[str]
-    job_description: Optional[str]
-    job_skills: Optional[List[str]]
-    job_metadata: Optional[Dict[str, Any]]
+    job_id: Optional[str] = None
+    job_description: Optional[str] = None
+    job_skills: Optional[List[str]] = None
+    job_metadata: Optional[Dict[str, Any]] = None
 
     # ATS Scores
-    missing_skills: Optional[List[str]]
-    skill_match_score: Optional[float]
-    overall_fit_score: Optional[float]
-    fit_explanation: Optional[str]
+    missing_skills: Optional[List[str]] = None
+    skill_match_score: Optional[float] = None
+    overall_fit_score: Optional[float] = None
+    fit_explanation: Optional[str] = None
 
     # AI Outputs
-    improved_resume: Optional[str]
-    cover_letter: Optional[str]
+    improved_resume: Optional[str] = None
+    cover_letter: Optional[str] = None
 
     # Result
-    application_id: Optional[str]
-    timestamp: Optional[str]
+    application_id: Optional[str] = None
+    timestamp: Optional[str] = None
+    
+    # Additional fields for search results
+    recommended_jobs: Optional[List[Dict[str, Any]]] = None
+    serpapi_error: Optional[str] = None
+    serpapi_warning: Optional[str] = None
+
+    class Config:
+        extra = "allow"  # Allow extra fields that might be in the state
 
