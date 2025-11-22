@@ -1,6 +1,4 @@
-Creating a concise README:
 
-```markdown:README.md
 # 🧭 CareerPilot AI
 
 **Smart Job-Fit, Resume Improvement, ATS Matching – Powered by LangGraph + Gemini**
@@ -90,5 +88,6 @@ careerPilot/
 - `POST /jobs/add` - Add job posting
 - `POST /careerpilot/analyze` - Run AI pipeline
 - `GET /applications/all` - Get application history
+
 
 
