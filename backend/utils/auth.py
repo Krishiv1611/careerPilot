@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 import os
 
 # Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey") # Change this in production!
+SECRET_KEY = os.getenv("SECRET_KEY") # Change this in production!
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
