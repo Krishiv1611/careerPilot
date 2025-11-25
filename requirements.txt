@@ -50,3 +50,6 @@ streamlit
 serpapi
 google-search-results
 requests
+
+# Encryption for API keys
+cryptography

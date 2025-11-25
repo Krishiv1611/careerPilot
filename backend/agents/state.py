@@ -11,6 +11,7 @@ class CareerPilotState(TypedDict, total=False):
     # System & DB
     # ----------------------------
     db: Session                 # SQLAlchemy session passed into graph
+    user_id: int                # Authenticated user ID
 
     # ----------------------------
     # User Inputs
@@ -19,6 +20,8 @@ class CareerPilotState(TypedDict, total=False):
     job_id: str                # Selected job ID (JD source)
     search_query: Optional[str]  # For job search pipeline
     use_serpapi: Optional[bool]
+    google_api_key: Optional[str] # User provided API key
+    serpapi_api_key: Optional[str] # User provided API key
 
     # ----------------------------
     # Resume Extraction

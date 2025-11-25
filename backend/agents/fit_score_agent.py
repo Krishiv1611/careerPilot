@@ -1,7 +1,6 @@
 from typing import Dict, Any
 import os
-if not os.getenv("GOOGLE_API_KEY"):
-    raise ValueError("GOOGLE_API_KEY not found in environment.")
+
 import json
 
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -44,10 +43,18 @@ def fit_score_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     # -----------------------------
     # Gemini LLM
     # -----------------------------
+    # -----------------------------
+    # Gemini LLM
+    # -----------------------------
+    google_api_key = state.get("google_api_key")
+    if not google_api_key:
+        raise ValueError("Google API Key not found in state")
+
     llm = ChatGoogleGenerativeAI(
         model="gemini-2.5-flash-lite",
         temperature=0.15,
-        response_mime_type="application/json"
+        response_mime_type="application/json",
+        google_api_key=google_api_key
     )
 
     # -----------------------------

@@ -3,8 +3,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 import os
-if not os.getenv("GOOGLE_API_KEY"):
-    raise ValueError("GOOGLE_API_KEY not found in environment.")
+
 
 
 def cover_letter_agent(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -26,11 +25,19 @@ def cover_letter_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     # -----------------------------------------
     # Gemini model
     # -----------------------------------------
+    # -----------------------------------------
+    # Gemini model
+    # -----------------------------------------
+    google_api_key = state.get("google_api_key")
+    if not google_api_key:
+        raise ValueError("Google API Key not found in state")
+
     llm = ChatGoogleGenerativeAI(
         model="gemini-2.5-flash-lite",
         temperature=0.25,
         max_output_tokens=900,
-        response_mime_type="text/plain"
+        response_mime_type="text/plain",
+        google_api_key=google_api_key
     )
 
     # -----------------------------------------

@@ -24,12 +24,12 @@ def serpapi_job_search_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError("search_query missing in state")
     
     db: Session = state["db"]
-    serpapi_key = os.getenv("SERPAPI_API_KEY")
+    serpapi_key = state.get("serpapi_api_key")
     
     if not serpapi_key:
         return {
             "recommended_jobs": [],
-            "serpapi_error": "SERPAPI_API_KEY not found in environment variables. Please set it in your .env file to use SerpAPI search."
+            "serpapi_error": "SERPAPI_API_KEY not provided. Please provide it in the request to use SerpAPI search."
         }
     
     # SerpAPI job search parameters
@@ -80,6 +80,14 @@ def serpapi_job_search_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         if "error" in data:
             error_msg = data.get("error", "Unknown SerpAPI error")
             print(f"[SerpAPI] API Error: {error_msg}")
+            
+            # Provide helpful message for "no results" error
+            if "hasn't returned any results" in error_msg.lower():
+                return {
+                    "recommended_jobs": [],
+                    "serpapi_warning": f"No jobs found for '{query}'. Try a simpler or broader search term (e.g., 'Software Engineer' instead of listing all technologies)."
+                }
+            
             return {
                 "recommended_jobs": [],
                 "serpapi_error": f"SerpAPI returned an error: {error_msg}"
@@ -168,27 +176,38 @@ def serpapi_job_search_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                 elif job_data.get("apply_link"):
                     apply_url = job_data.get("apply_link")
                 
-                # Create job record in database
-                job_record = Job(
-                    id=job_id,
-                    title=title,
-                    company=company,
-                    location=location,
-                    description=str(description) if description else "",
-                    employment_type=job_type,
-                    url=apply_url
-                )
-                
-                db.add(job_record)
-                db.commit()
-                db.refresh(job_record)
-                
-                # Ingest job description into vector store
-                if description:
-                    try:
-                        job_ingestor.ingest_job(job_id, str(description))
-                    except Exception as e:
-                        print(f"Warning: Failed to ingest job {job_id}: {str(e)}")
+                # Check if job already exists (by title and company)
+                existing_job = db.query(Job).filter(
+                    Job.title == title,
+                    Job.company == company
+                ).first()
+
+                if existing_job:
+                    print(f"[SerpAPI] Job already exists: {title} at {company} (ID: {existing_job.id})")
+                    job_id = existing_job.id
+                    # Optional: Update existing job fields if needed
+                else:
+                    # Create job record in database
+                    job_record = Job(
+                        id=job_id,
+                        title=title,
+                        company=company,
+                        location=location,
+                        description=str(description) if description else "",
+                        employment_type=job_type,
+                        url=apply_url
+                    )
+                    
+                    db.add(job_record)
+                    db.commit()
+                    db.refresh(job_record)
+                    
+                    # Ingest job description into vector store (only for new jobs)
+                    if description:
+                        try:
+                            job_ingestor.ingest_job(job_id, str(description))
+                        except Exception as e:
+                            print(f"Warning: Failed to ingest job {job_id}: {str(e)}")
                 
                 # Format for response
                 recommended_jobs.append({

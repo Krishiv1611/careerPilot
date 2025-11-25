@@ -3,33 +3,54 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import os
+import traceback
 
 from models.database import get_db
 from models.schemas import CareerPilotRequest, CareerPilotResponse
 from agents.graph import build_careerpilot_graph
 
+from models.user_model import User
+from utils.auth import get_current_user
+from utils.encryption import decrypt_api_key
+
 router = APIRouter(prefix="/careerpilot", tags=["CareerPilot"])
 
 
 @router.post("/analyze", response_model=CareerPilotResponse)
-def analyze(request: CareerPilotRequest, db: Session = Depends(get_db)):
-
+def analyze(
+    request: CareerPilotRequest, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    
+    # Extract API keys from request
+    google_api_key = request.google_api_key
+    serpapi_api_key = request.serpapi_api_key
+    
+    # Validate that Google API key is provided (required)
+    if not google_api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="Google Gemini AI API key not provided. Please enter your API key in the configuration panel."
+        )
+    
     # Validate SerpAPI key if use_serpapi is requested
     use_serpapi = request.use_serpapi or False
-    if use_serpapi:
-        serpapi_key = os.getenv("SERPAPI_API_KEY")
-        if not serpapi_key:
-            # Fallback to regular job search if API key is missing
-            use_serpapi = False
+    if use_serpapi and not serpapi_api_key:
+        # Fallback to regular job search if SerpAPI key is missing
+        use_serpapi = False
 
     graph = build_careerpilot_graph()
 
     initial_state = {
         "db": db,
+        "user_id": current_user.id,
         "resume_id": request.resume_id,
         "job_id": request.job_id,
         "search_query": request.search_query,
-        "use_serpapi": use_serpapi,  # Use validated value
+        "use_serpapi": use_serpapi,
+        "google_api_key": google_api_key,  # Pass user's Google API key
+        "serpapi_api_key": serpapi_api_key if use_serpapi else None,  # Pass SerpAPI key if needed
         "timestamp": "now"
     }
 
@@ -90,4 +111,10 @@ def analyze(request: CareerPilotRequest, db: Session = Depends(get_db)):
             )
         raise HTTPException(status_code=400, detail=error_msg)
     except Exception as e:
+        # Print full traceback for debugging
+        print(f"[Router] ERROR: Exception occurred during graph execution")
+        print(f"[Router] Exception type: {type(e).__name__}")
+        print(f"[Router] Exception message: {str(e)}")
+        print(f"[Router] Full traceback:")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

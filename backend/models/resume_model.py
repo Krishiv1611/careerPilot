@@ -1,6 +1,6 @@
 # backend/models/resume_model.py
 
-from sqlalchemy import Column, String, Text, DateTime, JSON
+from sqlalchemy import Column, String, Text, DateTime, JSON, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
@@ -10,6 +10,7 @@ class Resume(Base):
     __tablename__ = "resumes"
 
     id = Column(String, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     user_name = Column(String, nullable=True)
     raw_text = Column(Text, nullable=False)
 

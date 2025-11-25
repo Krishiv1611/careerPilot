@@ -50,7 +50,7 @@ class JobIngestor:
         docs = [Document(page_content=d["page_content"], metadata=d["metadata"]) for d in docs]
 
         embedder.vectorstore.add_documents(docs)
-        embedder.vectorstore.persist()
+        # Note: persist() is deprecated in Chroma 0.4.x - docs are automatically persisted
 
         return {
             "num_chunks": len(chunks),

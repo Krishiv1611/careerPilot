@@ -75,7 +75,7 @@ def build_careerpilot_graph():
         
         # Check if SerpAPI is requested and API key is available
         if state.get("use_serpapi"):
-            serpapi_key = os.getenv("SERPAPI_API_KEY")
+            serpapi_key = state.get("serpapi_api_key")
             if serpapi_key:
                 return "serpapi_job_search"
             # Fallback to regular search if API key is missing
@@ -118,9 +118,10 @@ def build_careerpilot_graph():
             print(f"[Graph] Routing to end_search (has {len(recommended_jobs)} jobs, no job_id)")
             return "end_search"  # End here, return results
         
-        # If no jobs found, still try jd_analyzer (it will handle empty job_id)
-        print(f"[Graph] Routing to jd_analyzer (no jobs found)")
-        return "jd_analyzer"
+        # If no jobs found, we should stop here.
+        # Proceeding to jd_analyzer without a job_id will cause DB constraint errors in application_saver.
+        print(f"[Graph] Routing to end_search (no jobs found)")
+        return "end_search"
 
     graph.add_conditional_edges(
         "job_search",

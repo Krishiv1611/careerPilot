@@ -1,6 +1,6 @@
 # backend/models/application_model.py
 
-from sqlalchemy import Column, String, Text, Float, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, String, Text, Float, DateTime, ForeignKey, JSON, Integer
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
@@ -10,6 +10,7 @@ class Application(Base):
     __tablename__ = "applications"
 
     id = Column(String, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     resume_id = Column(String, ForeignKey("resumes.id"), nullable=False)
     job_id = Column(String, ForeignKey("jobs.id"), nullable=False)

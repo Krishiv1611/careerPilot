@@ -19,6 +19,7 @@ class ResumeCreateModel(BaseModel):
 
 class ResumeResponseModel(ResumeCreateModel):
     id: str
+    user_id: int
     created_at: datetime
 
     class Config:
@@ -64,6 +65,7 @@ class ApplicationCreateModel(BaseModel):
 
 class ApplicationResponseModel(ApplicationCreateModel):
     id: str
+    user_id: int
     created_at: datetime
 
     class Config:
@@ -78,6 +80,8 @@ class CareerPilotRequest(BaseModel):
     job_id: Optional[str] = None
     search_query: Optional[str] = None
     use_serpapi: Optional[bool] = False  # Flag to use SerpAPI for job search
+    google_api_key: Optional[str] = None
+    serpapi_api_key: Optional[str] = None
 
 
 class CareerPilotResponse(BaseModel):
@@ -111,6 +115,48 @@ class CareerPilotResponse(BaseModel):
     serpapi_error: Optional[str] = None
     serpapi_warning: Optional[str] = None
 
+
     class Config:
         extra = "allow"  # Allow extra fields that might be in the state
 
+
+# ==========================================================
+# API Key Management Schemas
+# ==========================================================
+class APIKeysUpdate(BaseModel):
+    google_api_key: Optional[str] = None
+    serpapi_api_key: Optional[str] = None
+
+
+class APIKeysStatus(BaseModel):
+    has_google_key: bool
+    has_serpapi_key: bool
+
+
+# ==========================================================
+# Auth Schemas
+# ==========================================================
+class UserSignup(BaseModel):
+    email: str
+    password: str
+    full_name: Optional[str] = None
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    full_name: Optional[str] = None
+    created_at: datetime
+    
+    class Config:
+        orm_mode = True

@@ -17,8 +17,13 @@ def application_saver_agent(state: Dict[str, Any], db) -> Dict[str, Any]:
     fit_explanation = state.get("fit_explanation", "")
     ats_score = None  # reserved for future classical ATS
 
+    user_id = state.get("user_id") # Get user_id from state
+    print(f"[ApplicationSaver] user_id from state: {user_id}")
+    print(f"[ApplicationSaver] resume_id: {resume_id}, job_id: {job_id}")
+
     app = ApplicationSaver.save(
         db=db,
+        user_id=user_id, # Pass user_id
         resume_id=resume_id,
         job_id=job_id,
         overall_fit_score=overall_fit_score,

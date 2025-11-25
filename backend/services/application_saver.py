@@ -13,6 +13,7 @@ class ApplicationSaver:
     @staticmethod
     def save(
         db: Session,
+        user_id: int, # Add user_id
         resume_id: str,
         job_id: str,
         overall_fit_score: float,
@@ -25,6 +26,7 @@ class ApplicationSaver:
 
         app = Application(
             id=str(uuid4()),
+            user_id=user_id, # Save user_id
             resume_id=resume_id,
             job_id=job_id,
 

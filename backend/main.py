@@ -1,19 +1,18 @@
-# backend/main.py
-
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 load_dotenv()
 
-
 from routers.resume_router import router as resume_router
 from routers.job_router import router as job_router
 from routers.application_router import router as application_router
 from routers.careerpilot_router import router as careerpilot_router
+from routers.auth_router import router as auth_router
+from routers.settings_router import router as settings_router
 
 from models.database import Base, engine
-
+from models.user_model import User # Import to ensure table creation
 
 # ==========================================================
 # 1. Create database tables
@@ -36,7 +35,7 @@ app = FastAPI(
 # ==========================================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # For development; restrict later
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -64,6 +63,8 @@ ensure_directories()
 # ==========================================================
 # 5. Register Routers
 # ==========================================================
+app.include_router(auth_router)
+app.include_router(settings_router)
 app.include_router(resume_router)
 app.include_router(job_router)
 app.include_router(application_router)
