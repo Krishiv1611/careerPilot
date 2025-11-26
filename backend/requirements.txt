@@ -1,7 +1,6 @@
 # FastAPI + Server
 fastapi
 uvicorn[standard]
-uvicorn
 
 # LangGraph (agentic workflow)
 langchain
@@ -14,12 +13,17 @@ langchain-groq     # if using Groq LLMs (optional)
 langchain-google-genai
 python-multipart
 
+# Auth & Security
+python-jose[cryptography]
+passlib[argon2]
+argon2-cffi
+cryptography
+
 # Database
 sqlalchemy
-pydantic
+pydantic[email]
+email-validator
 langchain-chroma
-
-
 
 # PDF / Resume Processing
 pypdf
@@ -47,9 +51,4 @@ scikit-learn
 # For async operations
 aiohttp
 streamlit
-serpapi
-google-search-results
-requests
 
-# Encryption for API keys
-cryptography

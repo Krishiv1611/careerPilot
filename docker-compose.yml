@@ -1,0 +1,28 @@
+services:
+  backend:
+    build: ./backend
+    image: krishiv16/careerpilot-backend:latest
+    container_name: careerpilot-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data:/app/backend/data # Persist data
+      - ./backend:/app # Optional: for hot reloading during dev (remove in prod)
+    environment:
+      - CORS_ORIGINS=http://localhost,http://localhost:5173,http://localhost:3000
+      # Add other env vars here or use env_file
+    env_file:
+      - .env
+
+  frontend:
+    build: ./frontend
+    image: krishiv16/careerpilot-frontend:latest
+    container_name: careerpilot-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_BACKEND_URL=http://localhost:8000 # This is tricky in build time vs runtime. 
+      # Note: Vite env vars are embedded at BUILD time. 
+      # If you change this, you need to rebuild the frontend image.

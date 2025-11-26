@@ -4,6 +4,11 @@
 
 An AI-powered job application assistant that helps job seekers find matches, improve resumes, and generate cover letters using LangGraph agentic workflows and Google Gemini AI.
 
+[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-krishiv16%2Fcareerpilot-blue?logo=docker)](https://hub.docker.com/u/krishiv16)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![React](https://img.shields.io/badge/React-18+-61DAFB.svg?logo=react)](https://reactjs.org/)
+
 ## ✨ Features
 
 - **🎯 Smart Job Matching**: Multi-strategy search (TF-IDF + Semantic) with optional SerpAPI integration for Google Jobs
@@ -70,6 +75,75 @@ The application will be available at:
 - Frontend: `http://localhost:5173`
 - Backend API: `http://localhost:8000`
 - API Docs: `http://localhost:8000/docs`
+
+## 🐳 Docker Deployment
+
+### Using Docker Compose (Recommended)
+
+The easiest way to run CareerPilot is using Docker Compose:
+
+```bash
+# Build and start all services
+docker-compose up --build
+
+# Or run in detached mode
+docker-compose up -d
+```
+
+The application will be available at:
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:8000`
+- API Docs: `http://localhost:8000/docs`
+
+To stop the services:
+```bash
+docker-compose down
+```
+
+### Using Pre-built Docker Images
+
+You can also pull and run the pre-built images from Docker Hub:
+
+```bash
+# Pull images
+docker pull krishiv16/careerpilot-backend:latest
+docker pull krishiv16/careerpilot-frontend:latest
+
+# Run using docker-compose
+docker-compose up
+```
+
+### Building and Pushing to Docker Hub
+
+If you want to build and push your own images:
+
+```bash
+# Login to Docker Hub
+docker login
+
+# Build images
+docker-compose build
+
+# Tag images (replace YOUR_USERNAME with your Docker Hub username)
+docker tag careerpilot-backend YOUR_USERNAME/careerpilot-backend:latest
+docker tag careerpilot-frontend YOUR_USERNAME/careerpilot-frontend:latest
+
+# Push to Docker Hub
+docker push YOUR_USERNAME/careerpilot-backend:latest
+docker push YOUR_USERNAME/careerpilot-frontend:latest
+```
+
+### Environment Variables for Docker
+
+Create a `.env` file in the root directory with the following (optional):
+
+```env
+# Optional: Only needed if you want to use environment variables
+# Users will provide their own keys through the UI
+GOOGLE_API_KEY=your_google_api_key_here  # Optional
+SERPAPI_API_KEY=your_serpapi_key_here     # Optional
+CORS_ORIGINS=http://localhost,http://localhost:5173,http://localhost:3000
+```
 
 ## 📋 Usage
 

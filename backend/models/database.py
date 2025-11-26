@@ -8,7 +8,11 @@ from sqlalchemy.orm import sessionmaker
 # ==========================================================
 # Ensure database folder exists
 # ==========================================================
-BASE_PATH = os.path.join(os.getcwd(), "backend", "data", "database")
+# Get the directory of the current file (backend/models)
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Go up one level to backend/
+BACKEND_DIR = os.path.dirname(CURRENT_DIR)
+BASE_PATH = os.path.join(BACKEND_DIR, "data", "database")
 
 if not os.path.exists(BASE_PATH):
     os.makedirs(BASE_PATH, exist_ok=True)

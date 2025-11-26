@@ -35,7 +35,7 @@ app = FastAPI(
 # ==========================================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"],
+    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000").split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,14 +46,16 @@ app.add_middleware(
 # 4. Ensure required folders exist
 # ==========================================================
 def ensure_directories():
+    # Get absolute path to backend directory
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    
     dirs = [
-        "backend/data/resumes",
-        "backend/data/vectorstore/chroma",
-        "backend/data/jobs",
+        os.path.join(base_dir, "data", "resumes"),
+        os.path.join(base_dir, "data", "vectorstore", "chroma"),
+        os.path.join(base_dir, "data", "jobs"),
     ]
 
-    for d in dirs:
-        path = os.path.join(os.getcwd(), d)
+    for path in dirs:
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
 
