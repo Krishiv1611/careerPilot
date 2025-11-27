@@ -7,6 +7,14 @@ def skill_mapping_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """
 
     text = state["resume_text"]
+    
+    # Check if we already have skills (passed from frontend)
+    if state.get("extracted_skills") and len(state.get("extracted_skills")) > 0:
+        print(f"[SkillMapping] Skipping extraction, using provided skills.")
+        return {
+            "extracted_skills": state["extracted_skills"],
+            "skill_categories": state.get("skill_categories", {})
+        }
 
     extractor = SkillExtractor()
     skills, categories = extractor.extract_skills(text)

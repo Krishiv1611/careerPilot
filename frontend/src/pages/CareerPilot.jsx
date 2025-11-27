@@ -35,6 +35,9 @@ const CareerPilot = () => {
     const [analysisResult, setAnalysisResult] = useState(null);
     const [activeTab, setActiveTab] = useState('analysis'); // 'analysis', 'resume', 'cover_letter'
 
+    // Store intermediate resume data to avoid re-processing
+    const [resumeData, setResumeData] = useState(null);
+
     const [error, setError] = useState(null);
 
     useEffect(() => {
@@ -127,6 +130,15 @@ const CareerPilot = () => {
             // This initial call finds jobs (Auto-Match or Query)
             const data = await runCareerPilot(payload);
 
+            // Save resume data for future calls
+            if (data.resume_text) {
+                setResumeData({
+                    resume_text: data.resume_text,
+                    extracted_skills: data.extracted_skills,
+                    skill_categories: data.skill_categories
+                });
+            }
+
             if (data.recommended_jobs && data.recommended_jobs.length > 0) {
                 setJobResults(data.recommended_jobs);
             } else {
@@ -165,7 +177,9 @@ const CareerPilot = () => {
                 resume_id: selectedResume,
                 job_id: jobId, // Specific job to analyze
                 google_api_key: googleApiKey,
-                serpapi_api_key: serpApiKey
+                serpapi_api_key: serpApiKey,
+                // Pass cached data to skip re-processing
+                ...(resumeData || {})
                 // We don't need search query here as we have a job_id
             };
 

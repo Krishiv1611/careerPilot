@@ -8,6 +8,16 @@ from services.embedding import EmbeddingService
 def resume_extractor_agent(state):
 
     resume_id = state["resume_id"]
+    
+    # Check if we already have the text (passed from frontend)
+    if state.get("resume_text"):
+        print(f"[ResumeExtractor] Skipping extraction, using provided text.")
+        return {
+            "resume_text": state["resume_text"],
+            # If these are also passed, they will be in state, but we return them to be safe/explicit
+            "extracted_skills": state.get("extracted_skills", []),
+            "skill_categories": state.get("skill_categories", {})
+        }
 
     # Correct absolute path to the saved file
     file_path = os.path.join(

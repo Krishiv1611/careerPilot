@@ -51,7 +51,13 @@ def analyze(
         "use_serpapi": use_serpapi,
         "google_api_key": google_api_key,  # Pass user's Google API key
         "serpapi_api_key": serpapi_api_key if use_serpapi else None,  # Pass SerpAPI key if needed
-        "timestamp": "now"
+        "timestamp": "now",
+        
+        # Pass intermediate data if available
+        "resume_text": request.resume_text,
+        "extracted_skills": request.extracted_skills,
+        "skill_categories": request.skill_categories,
+        "job_description": request.job_description
     }
 
     try:

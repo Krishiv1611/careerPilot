@@ -82,6 +82,12 @@ class CareerPilotRequest(BaseModel):
     use_serpapi: Optional[bool] = False  # Flag to use SerpAPI for job search
     google_api_key: Optional[str] = None
     serpapi_api_key: Optional[str] = None
+    
+    # Optional intermediate data to skip steps
+    resume_text: Optional[str] = None
+    extracted_skills: Optional[List[str]] = None
+    skill_categories: Optional[Dict[str, List[str]]] = None
+    job_description: Optional[str] = None
 
 
 class CareerPilotResponse(BaseModel):
