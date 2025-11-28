@@ -1,6 +1,6 @@
 # backend/models/resume_model.py
 
-from sqlalchemy import Column, String, Text, DateTime, JSON, Integer, ForeignKey
+from sqlalchemy import Column, String, Text, DateTime, JSON, Integer, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
@@ -16,6 +16,9 @@ class Resume(Base):
 
     extracted_skills = Column(JSON, nullable=True)       # LIST
     skill_categories = Column(JSON, nullable=True)       # DICT
+    
+    ats_score = Column(Float, nullable=True)
+    ats_report = Column(Text, nullable=True)
 
     experience = Column(Text, nullable=True)
     education = Column(Text, nullable=True)

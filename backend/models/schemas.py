@@ -15,6 +15,8 @@ class ResumeCreateModel(BaseModel):
     skill_categories: Optional[Dict[str, List[str]]] = None
     experience: Optional[str] = None
     education: Optional[str] = None
+    ats_score: Optional[float] = None
+    ats_report: Optional[str] = None
 
 
 class ResumeResponseModel(ResumeCreateModel):
@@ -107,6 +109,8 @@ class CareerPilotResponse(BaseModel):
     skill_match_score: Optional[float] = None
     overall_fit_score: Optional[float] = None
     fit_explanation: Optional[str] = None
+    ats_score: Optional[float] = None
+    ats_report: Optional[str] = None
 
     # AI Outputs
     improved_resume: Optional[str] = None

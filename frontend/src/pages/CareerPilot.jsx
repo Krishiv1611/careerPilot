@@ -4,15 +4,8 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { BrainCircuit, Search, Loader2, FileText, CheckCircle, AlertCircle, Briefcase, ExternalLink, Key } from 'lucide-react';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "../components/ui/dialog";
+import { BrainCircuit, Search, Loader2, FileText, CheckCircle, AlertCircle, Briefcase, ExternalLink } from 'lucide-react';
+
 
 const CareerPilot = () => {
     const [resumes, setResumes] = useState([]);
@@ -21,10 +14,7 @@ const CareerPilot = () => {
     const [useSerpApi, setUseSerpApi] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    // API Keys State
-    const [googleApiKey, setGoogleApiKey] = useState('');
-    const [serpApiKey, setSerpApiKey] = useState('');
-    const [showKeyModal, setShowKeyModal] = useState(false);
+
     const [pendingAction, setPendingAction] = useState(null); // 'search' or 'analyze'
     const [pendingJobId, setPendingJobId] = useState(null); // for analyze action
 
@@ -51,64 +41,15 @@ const CareerPilot = () => {
             }
         };
         fetchResumes();
-
-        // Load API keys from localStorage (scoped to user)
-        const user = JSON.parse(localStorage.getItem('user'));
-        if (user && user.id) {
-            const storedGoogleKey = localStorage.getItem(`googleApiKey_${user.id}`);
-            const storedSerpKey = localStorage.getItem(`serpApiKey_${user.id}`);
-            if (storedGoogleKey) setGoogleApiKey(storedGoogleKey);
-            if (storedSerpKey) setSerpApiKey(storedSerpKey);
-        }
     }, []);
 
-    const handleKeySubmit = () => {
-        if (!googleApiKey) {
-            setError("Google API Key is required.");
-            return;
-        }
-        if (useSerpApi && !serpApiKey) {
-            setError("SerpAPI Key is required when using SerpAPI search.");
-            return;
-        }
 
-        // Save to localStorage (scoped to user)
-        const user = JSON.parse(localStorage.getItem('user'));
-        if (user && user.id) {
-            localStorage.setItem(`googleApiKey_${user.id}`, googleApiKey);
-            if (serpApiKey) {
-                localStorage.setItem(`serpApiKey_${user.id}`, serpApiKey);
-            } else {
-                localStorage.removeItem(`serpApiKey_${user.id}`);
-            }
-        }
-
-        setShowKeyModal(false);
-        setError(null);
-
-        // Resume pending action
-        if (pendingAction === 'search') {
-            executeSearch();
-        } else if (pendingAction === 'analyze' && pendingJobId) {
-            executeAnalyzeJob(pendingJobId);
-        }
-        setPendingAction(null);
-        setPendingJobId(null);
-    };
 
     const handleSearch = () => {
         if (!selectedResume) {
             setError("Please select a resume.");
             return;
         }
-
-        // Check if keys are needed
-        if (!googleApiKey || (useSerpApi && !serpApiKey)) {
-            setPendingAction('search');
-            setShowKeyModal(true);
-            return;
-        }
-
         executeSearch();
     };
 
@@ -119,6 +60,16 @@ const CareerPilot = () => {
         setAnalysisResult(null);
 
         try {
+            // Get keys from localStorage
+            const user = JSON.parse(localStorage.getItem('user'));
+            const googleApiKey = user ? localStorage.getItem(`googleApiKey_${user.id}`) : '';
+            const serpApiKey = user ? localStorage.getItem(`serpApiKey_${user.id}`) : '';
+
+            if (!googleApiKey) {
+                setError("Google API Key is missing. Please configure it in the header settings.");
+                return;
+            }
+
             const payload = {
                 resume_id: selectedResume,
                 search_query: searchQuery,
@@ -135,7 +86,9 @@ const CareerPilot = () => {
                 setResumeData({
                     resume_text: data.resume_text,
                     extracted_skills: data.extracted_skills,
-                    skill_categories: data.skill_categories
+                    skill_categories: data.skill_categories,
+                    ats_score: data.ats_score,
+                    ats_report: data.ats_report
                 });
             }
 
@@ -158,21 +111,25 @@ const CareerPilot = () => {
     };
 
     const handleAnalyzeJob = (jobId) => {
-        // Check if keys are needed (should be present from search, but good to check)
-        if (!googleApiKey) {
-            setPendingAction('analyze');
-            setPendingJobId(jobId);
-            setShowKeyModal(true);
-            return;
-        }
         executeAnalyzeJob(jobId);
     };
 
     const executeAnalyzeJob = async (jobId) => {
         setLoading(true);
+        setPendingJobId(jobId);
         setError(null);
 
         try {
+            // Get keys from localStorage
+            const user = JSON.parse(localStorage.getItem('user'));
+            const googleApiKey = user ? localStorage.getItem(`googleApiKey_${user.id}`) : '';
+            const serpApiKey = user ? localStorage.getItem(`serpApiKey_${user.id}`) : '';
+
+            if (!googleApiKey) {
+                setError("Google API Key is missing. Please configure it in the header settings.");
+                return;
+            }
+
             const payload = {
                 resume_id: selectedResume,
                 job_id: jobId, // Specific job to analyze
@@ -192,6 +149,7 @@ const CareerPilot = () => {
             setError(err.response?.data?.detail || "Analysis failed. Please try again.");
         } finally {
             setLoading(false);
+            setPendingJobId(null);
         }
     };
 
@@ -250,13 +208,7 @@ const CareerPilot = () => {
                             <Label htmlFor="serpapi">Use SerpAPI (External Search)</Label>
                         </div>
 
-                        <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => setShowKeyModal(true)}
-                        >
-                            <Key className="mr-2 h-4 w-4" /> Configure API Keys
-                        </Button>
+
 
                         <Button onClick={handleSearch} disabled={loading} className="w-full">
                             {loading ? (
@@ -366,138 +318,116 @@ const CareerPilot = () => {
                         </Card>
                     ) : (
                         /* 2. Job Search Results */
-                        jobResults.length > 0 ? (
-                            <div className="space-y-8 animate-in fade-in-50">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-lg font-semibold">Found {jobResults.length} Jobs</h3>
-                                </div>
+                        <div className="space-y-8 animate-in fade-in-50">
+                            {/* Resume ATS Score Section */}
 
-                                {/* Online Jobs Section */}
-                                {jobResults.filter(j => j.source === 'Google Jobs').length > 0 && (
-                                    <div className="space-y-4">
-                                        <h4 className="text-md font-semibold text-primary flex items-center">
-                                            <Search className="mr-2 h-4 w-4" /> Online Jobs (Google)
-                                        </h4>
-                                        <div className="grid gap-4">
-                                            {jobResults.filter(j => j.source === 'Google Jobs').map((job) => (
-                                                <Card key={job.id} className="hover:bg-muted/50 transition-colors border-l-4 border-l-blue-500">
-                                                    <CardContent className="p-4 flex items-start justify-between">
-                                                        <div className="space-y-1">
-                                                            <h4 className="font-semibold text-lg">{job.title}</h4>
-                                                            <p className="text-sm text-muted-foreground">{job.company} • {job.location}</p>
-                                                            <p className="text-xs text-muted-foreground line-clamp-2 mt-2 max-w-md">
-                                                                {job.description}
-                                                            </p>
-                                                        </div>
-                                                        <div className="flex gap-2">
-                                                            {job.url && (
-                                                                <Button size="sm" variant="outline" onClick={() => window.open(job.url, '_blank')}>
-                                                                    Apply Now <ExternalLink className="ml-2 h-4 w-4" />
-                                                                </Button>
-                                                            )}
-                                                            <Button size="sm" onClick={() => handleAnalyzeJob(job.id)}>
-                                                                Analyze Match
-                                                            </Button>
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
 
-                                {/* DB Jobs Section */}
-                                {jobResults.filter(j => j.source !== 'Google Jobs').length > 0 && (
-                                    <div className="space-y-4">
-                                        <h4 className="text-md font-semibold text-primary flex items-center">
-                                            <BrainCircuit className="mr-2 h-4 w-4" /> Internal Database Jobs
-                                        </h4>
-                                        <div className="grid gap-4">
-                                            {jobResults.filter(j => j.source !== 'Google Jobs').map((job) => (
-                                                <Card key={job.id} className="hover:bg-muted/50 transition-colors border-l-4 border-l-green-500">
-                                                    <CardContent className="p-4 flex items-start justify-between">
-                                                        <div className="space-y-1">
-                                                            <h4 className="font-semibold text-lg">{job.title}</h4>
-                                                            <p className="text-sm text-muted-foreground">{job.company} • {job.location}</p>
-                                                            <p className="text-xs text-muted-foreground line-clamp-2 mt-2 max-w-md">
-                                                                {job.description}
-                                                            </p>
-                                                        </div>
-                                                        <div className="flex gap-2">
-                                                            {job.url && (
-                                                                <Button size="sm" variant="outline" onClick={() => window.open(job.url, '_blank')}>
-                                                                    Apply Now <ExternalLink className="ml-2 h-4 w-4" />
-                                                                </Button>
-                                                            )}
-                                                            <Button size="sm" onClick={() => handleAnalyzeJob(job.id)}>
-                                                                Analyze Match
-                                                            </Button>
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-                                            ))}
-                                        </div>
+                            {jobResults.length > 0 ? (
+                                <div className="space-y-8">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-lg font-semibold">Found {jobResults.length} Jobs</h3>
                                     </div>
-                                )}
-                            </div>
-                        ) : (
-                            /* 3. Empty State */
-                            <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-in fade-in-50">
-                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                                    <Search className="h-6 w-6 text-muted-foreground" />
+
+                                    {/* Online Jobs Section */}
+                                    {jobResults.filter(j => j.source === 'Google Jobs').length > 0 && (
+                                        <div className="space-y-4">
+                                            <h4 className="text-md font-semibold text-primary flex items-center">
+                                                <Search className="mr-2 h-4 w-4" /> Online Jobs (Google)
+                                            </h4>
+                                            <div className="grid gap-4">
+                                                {jobResults.filter(j => j.source === 'Google Jobs').map((job) => (
+                                                    <Card key={job.id} className="hover:bg-muted/50 transition-colors border-l-4 border-l-blue-500">
+                                                        <CardContent className="p-4 flex items-start justify-between">
+                                                            <div className="space-y-1">
+                                                                <h4 className="font-semibold text-lg">{job.title}</h4>
+                                                                <p className="text-sm text-muted-foreground">{job.company} • {job.location}</p>
+                                                                <p className="text-xs text-muted-foreground line-clamp-2 mt-2 max-w-md">
+                                                                    {job.description}
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                {job.url && (
+                                                                    <Button size="sm" variant="outline" onClick={() => window.open(job.url, '_blank')}>
+                                                                        Apply Now <ExternalLink className="ml-2 h-4 w-4" />
+                                                                    </Button>
+                                                                )}
+                                                                <Button size="sm" onClick={() => handleAnalyzeJob(job.id)} disabled={loading}>
+                                                                    {loading && pendingJobId === job.id ? (
+                                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                    ) : (
+                                                                        "Analyze Match"
+                                                                    )}
+                                                                </Button>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* DB Jobs Section */}
+                                    {jobResults.filter(j => j.source !== 'Google Jobs').length > 0 && (
+                                        <div className="space-y-4">
+                                            <h4 className="text-md font-semibold text-primary flex items-center">
+                                                <BrainCircuit className="mr-2 h-4 w-4" /> Internal Database Jobs
+                                            </h4>
+                                            <div className="grid gap-4">
+                                                {jobResults.filter(j => j.source !== 'Google Jobs').map((job) => (
+                                                    <Card key={job.id} className="hover:bg-muted/50 transition-colors border-l-4 border-l-green-500">
+                                                        <CardContent className="p-4 flex items-start justify-between">
+                                                            <div className="space-y-1">
+                                                                <h4 className="font-semibold text-lg">{job.title}</h4>
+                                                                <p className="text-sm text-muted-foreground">{job.company} • {job.location}</p>
+                                                                <p className="text-xs text-muted-foreground line-clamp-2 mt-2 max-w-md">
+                                                                    {job.description}
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                {job.url && (
+                                                                    <Button size="sm" variant="outline" onClick={() => window.open(job.url, '_blank')}>
+                                                                        Apply Now <ExternalLink className="ml-2 h-4 w-4" />
+                                                                    </Button>
+                                                                )}
+                                                                <Button size="sm" onClick={() => handleAnalyzeJob(job.id)} disabled={loading}>
+                                                                    {loading && pendingJobId === job.id ? (
+                                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                    ) : (
+                                                                        "Analyze Match"
+                                                                    )}
+                                                                </Button>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                <h3 className="mt-4 text-lg font-semibold">Ready to Launch</h3>
-                                <p className="mb-4 mt-2 text-sm text-muted-foreground max-w-sm">
-                                    Select a resume and click "Find Jobs" to start. We'll find the best matches and let you analyze them one by one.
-                                </p>
-                            </div>
-                        )
+                            ) : (
+                                /* Empty State (but with ATS score if available) */
+                                resumeData?.ats_score ? (
+                                    <div className="flex flex-col items-center justify-center p-8 text-center">
+                                        <p className="text-muted-foreground">No jobs found matching your criteria, but your resume has been analyzed above.</p>
+                                    </div>
+                                ) : (
+                                    <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-in fade-in-50">
+                                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                                            <Search className="h-6 w-6 text-muted-foreground" />
+                                        </div>
+                                        <h3 className="mt-4 text-lg font-semibold">Ready to Launch</h3>
+                                        <p className="mb-4 mt-2 text-sm text-muted-foreground max-w-sm">
+                                            Select a resume and click "Find Jobs" to start. We'll find the best matches and let you analyze them one by one.
+                                        </p>
+                                    </div>
+                                )
+                            )}
+                        </div>
                     )}
                 </div>
             </div>
 
-            {/* API Key Modal */}
-            <Dialog open={showKeyModal} onOpenChange={setShowKeyModal}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle>Enter API Keys</DialogTitle>
-                        <DialogDescription>
-                            Your keys are stored securely for your account only.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="google-key" className="text-right">
-                                Gemini Key
-                            </Label>
-                            <Input
-                                id="google-key"
-                                value={googleApiKey}
-                                onChange={(e) => setGoogleApiKey(e.target.value)}
-                                className="col-span-3"
-                                type="password"
-                                placeholder="AIzaSy..."
-                            />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="serp-key" className="text-right">
-                                SerpAPI Key
-                            </Label>
-                            <Input
-                                id="serp-key"
-                                value={serpApiKey}
-                                onChange={(e) => setSerpApiKey(e.target.value)}
-                                className="col-span-3"
-                                type="password"
-                                placeholder="Optional..."
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button onClick={handleKeySubmit}>Save & Continue</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+
         </div>
     );
 };

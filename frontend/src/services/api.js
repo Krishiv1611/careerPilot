@@ -21,9 +21,12 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-export const uploadResume = async (file) => {
+export const uploadResume = async (file, apiKey = null) => {
     const formData = new FormData();
     formData.append('file', file);
+    if (apiKey) {
+        formData.append('google_api_key', apiKey);
+    }
     const response = await api.post('/resume/upload', formData, {
         headers: {
             'Content-Type': 'multipart/form-data',

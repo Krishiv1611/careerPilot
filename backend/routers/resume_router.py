@@ -10,6 +10,9 @@ from models.schemas import ResumeResponseModel
 from services.pdf_reader import PDFReader
 from services.text_cleaner import TextCleaner
 from services.skill_extractor import SkillExtractor
+from services.ats_service import ATSService
+from typing import Optional
+from fastapi import Form
 import os
 
 from models.user_model import User
@@ -21,9 +24,13 @@ router = APIRouter(prefix="/resume", tags=["Resume"])
 @router.post("/upload", response_model=ResumeResponseModel)
 async def upload_resume(
     file: UploadFile = File(...), 
+    google_api_key: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if not google_api_key:
+        raise HTTPException(status_code=400, detail="Google API Key is required. Please configure it in settings.")
+
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF resumes are allowed.")
 
@@ -43,6 +50,11 @@ async def upload_resume(
     extractor = SkillExtractor()
     extracted_skills, skill_categories = extractor.extract_skills(cleaned)
 
+    # Calculate ATS Score if key provided
+    ats_result = {"ats_score": None, "ats_report": None}
+    if google_api_key:
+        ats_result = ATSService.calculate_score(cleaned, google_api_key)
+
     # Save in DB
     resume = Resume(
         id=file_id,
@@ -51,6 +63,8 @@ async def upload_resume(
         raw_text=cleaned,
         extracted_skills=extracted_skills,
         skill_categories=skill_categories,
+        ats_score=ats_result.get("ats_score"),
+        ats_report=ats_result.get("ats_report")
     )
     db.add(resume)
     db.commit()

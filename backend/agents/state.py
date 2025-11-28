@@ -66,6 +66,8 @@ class CareerPilotState(TypedDict, total=False):
     # ----------------------------
     improved_resume: str
     cover_letter: str
+    ats_score: float
+    ats_report: str
 
     # ----------------------------
     # Application Saving

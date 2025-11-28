@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Trash2, FileText, Upload } from 'lucide-react';
+import { Trash2, FileText, Upload, Loader2 } from 'lucide-react';
 
 const UploadResume = () => {
     const [file, setFile] = useState(null);
@@ -35,11 +35,22 @@ const UploadResume = () => {
     };
 
     const handleUpload = async () => {
-        if (!file) return;
         setLoading(true);
-        setError(null);
         try {
-            const data = await uploadResume(file);
+            // Get API key from localStorage
+            const user = JSON.parse(localStorage.getItem('user'));
+            let apiKey = '';
+            if (user && user.id) {
+                apiKey = localStorage.getItem(`googleApiKey_${user.id}`) || '';
+            }
+
+            if (!apiKey) {
+                setError("Google API Key is required. Please configure it in the header.");
+                setLoading(false);
+                return;
+            }
+
+            const data = await uploadResume(file, apiKey);
             setResult(data);
             fetchResumes(); // Refresh list
         } catch (err) {
@@ -87,7 +98,7 @@ const UploadResume = () => {
                             </div>
                             <Button onClick={handleUpload} disabled={!file || loading} className="w-full">
                                 {loading ? (
-                                    <>Uploading...</>
+                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>
                                 ) : (
                                     <><Upload className="mr-2 h-4 w-4" /> Upload Resume</>
                                 )}
@@ -113,6 +124,20 @@ const UploadResume = () => {
                                         ))}
                                     </div>
                                 </div>
+
+                                {result.ats_score !== undefined && result.ats_score !== null && (
+                                    <div className="rounded-md bg-purple-50 p-4 border border-purple-100">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h4 className="font-semibold text-purple-900">ATS Score</h4>
+                                            <span className="text-2xl font-bold text-purple-700">{result.ats_score}/100</span>
+                                        </div>
+                                        {result.ats_report && (
+                                            <div className="text-sm text-purple-800 whitespace-pre-wrap">
+                                                {result.ats_report}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 <div className="space-y-2">
                                     <Label>Raw Text</Label>
