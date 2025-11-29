@@ -20,16 +20,24 @@ if not os.path.exists(BASE_PATH):
 DB_FILE = os.path.join(BASE_PATH, "careerpilot.db")
 
 # ==========================================================
-# SQLite Connection URL
+# Database Connection Logic (PostgreSQL ONLY)
 # ==========================================================
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_FILE}"
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is not set. This application requires PostgreSQL.")
+
+# Handle "postgres://" vs "postgresql://" for SQLAlchemy
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+SQLALCHEMY_DATABASE_URL = DATABASE_URL
 
 # ==========================================================
 # SQLAlchemy Engine & Session
 # ==========================================================
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False}  # needed for SQLite
+    SQLALCHEMY_DATABASE_URL
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

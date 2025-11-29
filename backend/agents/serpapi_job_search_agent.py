@@ -195,7 +195,8 @@ def serpapi_job_search_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                         location=location,
                         description=str(description) if description else "",
                         employment_type=job_type,
-                        url=apply_url
+                        url=apply_url,
+                        source="Google Jobs"
                     )
                     
                     db.add(job_record)
@@ -216,7 +217,8 @@ def serpapi_job_search_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                     "company": company,
                     "location": location,
                     "description": str(description)[:500] if description else "",  # Truncate for response
-                    "score": 1.0  # SerpAPI results are already ranked
+                    "score": 1.0,  # SerpAPI results are already ranked
+                    "source": "Google Jobs"
                 })
                 
                 print(f"[SerpAPI] Successfully processed job {idx+1}: {title} at {company}")

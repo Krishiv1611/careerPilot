@@ -61,6 +61,7 @@ export const deleteJob = async (jobId) => {
 };
 
 export const runCareerPilot = async (payload) => {
+    // Ensure payload includes new keys if they exist in the object passed
     const response = await api.post('/careerpilot/analyze', payload);
     return response.data;
 };

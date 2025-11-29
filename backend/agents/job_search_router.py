@@ -17,6 +17,12 @@ def job_search_router(state: Dict[str, Any]) -> str:
     if state.get("job_id"):
         return "skip_search"
 
+    # Check if Tavily is requested and API key is available
+    if state.get("use_tavily"):
+        tavily_key = state.get("tavily_api_key")
+        if tavily_key:
+            return "tavily_job_search"
+
     # Check if SerpAPI is requested and API key is available
     if state.get("use_serpapi"):
         serpapi_key = state.get("serpapi_api_key")

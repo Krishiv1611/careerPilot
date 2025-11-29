@@ -3,6 +3,7 @@ from agents.resume_extractor_agent import resume_extractor_agent
 from agents.skill_mapping_agent import skill_mapping_agent
 from agents.job_search_agent import job_search_agent
 from agents.serpapi_job_search_agent import serpapi_job_search_agent
+from agents.tavily_agent import tavily_job_search_agent
 from agents.jd_analyzer_agent import jd_analyzer_agent
 from agents.fit_score_agent import fit_score_agent
 from agents.resume_improver_agent import resume_improver_agent
@@ -50,6 +51,12 @@ def build_careerpilot_graph():
         serpapi_job_search_agent
     )
 
+    # tavily_job_search needs DB
+    graph.add_node(
+        "tavily_job_search",
+        tavily_job_search_agent
+    )
+
     # JD analyzer → only state
     graph.add_node("jd_analyzer", jd_analyzer_agent)
 
@@ -68,13 +75,8 @@ def build_careerpilot_graph():
         lambda state: application_saver_agent(state, next(get_db()))
     )
     
-    # Join Node (Virtual node to synchronize parallel branches)
-    # In LangGraph, we can just point multiple nodes to the next step.
-    # But we need logic to decide if we proceed to JD Analyzer or End.
-    
     def join_logic(state):
         # This function decides where to go after search/resume processing
-        # It acts as a router after the parallel branches merge
         
         recommended_jobs = state.get("recommended_jobs")
         job_id = state.get("job_id")
@@ -92,29 +94,10 @@ def build_careerpilot_graph():
 
     # -------------------- Edges --------------------
     
-    # PARALLEL START:
-    # 1. Resume Processing Branch
-    # 2. Job Search Branch
-    
     graph.set_entry_point("resume_extractor")
-    
-    # Branch 1: Resume Processing
-    # resume_extractor -> skill_mapping
-    # resume_extractor -> ats_score (Parallel sub-branch)
     
     graph.add_edge("resume_extractor", "skill_mapping")
     graph.add_edge("resume_extractor", "ats_score")
-    
-    # Branch 2: Job Search (Parallel to Resume Processing? No, strictly speaking resume_extractor is entry)
-    # To make them truly parallel from start, we'd need a dummy start node.
-    # But resume_extractor is fast enough, let's keep it as entry.
-    # Actually, the user wants "optimise graph structure".
-    # If we want true parallel, we can use a "start" node that does nothing.
-    
-    # Let's keep resume_extractor as entry for simplicity, but split AFTER it.
-    # Or, we can add a "router" at start?
-    # Let's just branch AFTER resume_extractor.
-    # resume_extractor -> job_search_router
     
     graph.add_conditional_edges(
         "skill_mapping",
@@ -122,27 +105,13 @@ def build_careerpilot_graph():
         {
             "job_search": "job_search",
             "serpapi_job_search": "serpapi_job_search",
+            "tavily_job_search": "tavily_job_search",
             "skip_search": "jd_analyzer"
         }
     )
     
-    # Now we have 3 branches running from resume_extractor:
-    # 1. skill_mapping
-    # 2. ats_score
-    # 3. job_search (via router)
-    
-    # End of branches:
-    
-    # ATS Score -> END (Just adds data)
     graph.add_edge("ats_score", END)
     
-    # Skill Mapping -> END (Just adds data, unless we need it for search? No, search is parallel)
-    # But wait, if we go to jd_analyzer later, we need skills.
-    # The state is shared.
-    # Skill Mapping -> END (Removed because it now flows to job_search_router)
-    # graph.add_edge("skill_mapping", END)
-    
-    # Job Search -> Join Logic
     graph.add_conditional_edges(
         "job_search",
         join_logic,
@@ -154,6 +123,15 @@ def build_careerpilot_graph():
     
     graph.add_conditional_edges(
         "serpapi_job_search",
+        join_logic,
+        {
+            "jd_analyzer": "jd_analyzer",
+            "end_search": END
+        }
+    )
+
+    graph.add_conditional_edges(
+        "tavily_job_search",
         join_logic,
         {
             "jd_analyzer": "jd_analyzer",

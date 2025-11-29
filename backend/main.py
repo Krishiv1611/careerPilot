@@ -19,12 +19,7 @@ from models.user_model import User # Import to ensure table creation
 # ==========================================================
 Base.metadata.create_all(bind=engine)
 
-# Run schema update for migrations (e.g. adding columns)
-try:
-    from update_db_schema import update_schema
-    update_schema()
-except Exception as e:
-    print(f"Startup schema update failed: {e}")
+
 
 
 # ==========================================================

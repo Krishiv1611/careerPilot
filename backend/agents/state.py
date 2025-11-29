@@ -20,8 +20,10 @@ class CareerPilotState(TypedDict, total=False):
     job_id: str                # Selected job ID (JD source)
     search_query: Optional[str]  # For job search pipeline
     use_serpapi: Optional[bool]
+    use_tavily: Optional[bool]
     google_api_key: Optional[str] # User provided API key
     serpapi_api_key: Optional[str] # User provided API key
+    tavily_api_key: Optional[str] # User provided API key
 
     # ----------------------------
     # Resume Extraction
@@ -52,6 +54,10 @@ class CareerPilotState(TypedDict, total=False):
     # Job Search Results
     # ----------------------------
     recommended_jobs: Optional[List[Dict[str, Any]]]  # List of job recommendations from search
+    serpapi_error: Optional[str]
+    serpapi_warning: Optional[str]
+    tavily_error: Optional[str]
+    tavily_warning: Optional[str]
 
     # ----------------------------
     # Fit Scoring (ATS)

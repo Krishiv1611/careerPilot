@@ -14,6 +14,7 @@ import {
 const APIKeyModal = ({ open, onOpenChange }) => {
     const [googleApiKey, setGoogleApiKey] = useState('');
     const [serpApiKey, setSerpApiKey] = useState('');
+    const [tavilyApiKey, setTavilyApiKey] = useState('');
 
     // Load keys when modal opens
     useEffect(() => {
@@ -22,8 +23,10 @@ const APIKeyModal = ({ open, onOpenChange }) => {
             if (user && user.id) {
                 const storedGoogleKey = localStorage.getItem(`googleApiKey_${user.id}`);
                 const storedSerpKey = localStorage.getItem(`serpApiKey_${user.id}`);
+                const storedTavilyKey = localStorage.getItem(`tavilyApiKey_${user.id}`);
                 if (storedGoogleKey) setGoogleApiKey(storedGoogleKey);
                 if (storedSerpKey) setSerpApiKey(storedSerpKey);
+                if (storedTavilyKey) setTavilyApiKey(storedTavilyKey);
             }
         }
     }, [open]);
@@ -41,6 +44,12 @@ const APIKeyModal = ({ open, onOpenChange }) => {
                 localStorage.setItem(`serpApiKey_${user.id}`, serpApiKey);
             } else {
                 localStorage.removeItem(`serpApiKey_${user.id}`);
+            }
+
+            if (tavilyApiKey) {
+                localStorage.setItem(`tavilyApiKey_${user.id}`, tavilyApiKey);
+            } else {
+                localStorage.removeItem(`tavilyApiKey_${user.id}`);
             }
         }
         onOpenChange(false);
@@ -77,6 +86,19 @@ const APIKeyModal = ({ open, onOpenChange }) => {
                             id="serp-key"
                             value={serpApiKey}
                             onChange={(e) => setSerpApiKey(e.target.value)}
+                            className="col-span-3"
+                            type="password"
+                            placeholder="Optional..."
+                        />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="tavily-key" className="text-right">
+                            Tavily Key
+                        </Label>
+                        <Input
+                            id="tavily-key"
+                            value={tavilyApiKey}
+                            onChange={(e) => setTavilyApiKey(e.target.value)}
                             className="col-span-3"
                             type="password"
                             placeholder="Optional..."

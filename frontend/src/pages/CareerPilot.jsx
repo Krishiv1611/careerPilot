@@ -12,6 +12,7 @@ const CareerPilot = () => {
     const [selectedResume, setSelectedResume] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [useSerpApi, setUseSerpApi] = useState(false);
+    const [useTavily, setUseTavily] = useState(false);
     const [loading, setLoading] = useState(false);
 
 
@@ -64,6 +65,7 @@ const CareerPilot = () => {
             const user = JSON.parse(localStorage.getItem('user'));
             const googleApiKey = user ? localStorage.getItem(`googleApiKey_${user.id}`) : '';
             const serpApiKey = user ? localStorage.getItem(`serpApiKey_${user.id}`) : '';
+            const tavilyApiKey = user ? localStorage.getItem(`tavilyApiKey_${user.id}`) : '';
 
             if (!googleApiKey) {
                 setError("Google API Key is missing. Please configure it in the header settings.");
@@ -74,8 +76,10 @@ const CareerPilot = () => {
                 resume_id: selectedResume,
                 search_query: searchQuery,
                 use_serpapi: useSerpApi,
+                use_tavily: useTavily,
                 google_api_key: googleApiKey,
-                serpapi_api_key: serpApiKey
+                serpapi_api_key: serpApiKey,
+                tavily_api_key: tavilyApiKey
             };
 
             // This initial call finds jobs (Auto-Match or Query)
@@ -101,6 +105,9 @@ const CareerPilot = () => {
             if (data.serpapi_warning) {
                 console.warn(data.serpapi_warning);
             }
+            if (data.tavily_warning) {
+                console.warn(data.tavily_warning);
+            }
 
         } catch (err) {
             console.error(err);
@@ -124,6 +131,7 @@ const CareerPilot = () => {
             const user = JSON.parse(localStorage.getItem('user'));
             const googleApiKey = user ? localStorage.getItem(`googleApiKey_${user.id}`) : '';
             const serpApiKey = user ? localStorage.getItem(`serpApiKey_${user.id}`) : '';
+            const tavilyApiKey = user ? localStorage.getItem(`tavilyApiKey_${user.id}`) : '';
 
             if (!googleApiKey) {
                 setError("Google API Key is missing. Please configure it in the header settings.");
@@ -135,6 +143,7 @@ const CareerPilot = () => {
                 job_id: jobId, // Specific job to analyze
                 google_api_key: googleApiKey,
                 serpapi_api_key: serpApiKey,
+                tavily_api_key: tavilyApiKey,
                 // Pass cached data to skip re-processing
                 ...(resumeData || {})
                 // We don't need search query here as we have a job_id
@@ -197,18 +206,31 @@ const CareerPilot = () => {
                             </p>
                         </div>
 
-                        <div className="flex items-center space-x-2">
-                            <input
-                                type="checkbox"
-                                id="serpapi"
-                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                checked={useSerpApi}
-                                onChange={(e) => setUseSerpApi(e.target.checked)}
-                            />
-                            <Label htmlFor="serpapi">Use SerpAPI (External Search)</Label>
+                        <div className="space-y-2">
+                            <Label>Search Options</Label>
+                            <div className="flex flex-col space-y-2">
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="checkbox"
+                                        id="serpapi"
+                                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                        checked={useSerpApi}
+                                        onChange={(e) => setUseSerpApi(e.target.checked)}
+                                    />
+                                    <Label htmlFor="serpapi">Use SerpAPI (Google Jobs)</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="checkbox"
+                                        id="tavily"
+                                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                        checked={useTavily}
+                                        onChange={(e) => setUseTavily(e.target.checked)}
+                                    />
+                                    <Label htmlFor="tavily">Use Tavily (Web Search)</Label>
+                                </div>
+                            </div>
                         </div>
-
-
 
                         <Button onClick={handleSearch} disabled={loading} className="w-full">
                             {loading ? (
@@ -366,14 +388,52 @@ const CareerPilot = () => {
                                         </div>
                                     )}
 
+                                    {/* Tavily Jobs Section */}
+                                    {jobResults.filter(j => j.source === 'Tavily').length > 0 && (
+                                        <div className="space-y-4">
+                                            <h4 className="text-md font-semibold text-primary flex items-center">
+                                                <Search className="mr-2 h-4 w-4" /> Web Search Results (Tavily)
+                                            </h4>
+                                            <div className="grid gap-4">
+                                                {jobResults.filter(j => j.source === 'Tavily').map((job) => (
+                                                    <Card key={job.id} className="hover:bg-muted/50 transition-colors border-l-4 border-l-purple-500">
+                                                        <CardContent className="p-4 flex items-start justify-between">
+                                                            <div className="space-y-1">
+                                                                <h4 className="font-semibold text-lg">{job.title}</h4>
+                                                                <p className="text-sm text-muted-foreground">{job.company} • {job.location}</p>
+                                                                <p className="text-xs text-muted-foreground line-clamp-2 mt-2 max-w-md">
+                                                                    {job.description}
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                {job.url && (
+                                                                    <Button size="sm" variant="outline" onClick={() => window.open(job.url, '_blank')}>
+                                                                        Apply Now <ExternalLink className="ml-2 h-4 w-4" />
+                                                                    </Button>
+                                                                )}
+                                                                <Button size="sm" onClick={() => handleAnalyzeJob(job.id)} disabled={loading}>
+                                                                    {loading && pendingJobId === job.id ? (
+                                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                    ) : (
+                                                                        "Analyze Match"
+                                                                    )}
+                                                                </Button>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* DB Jobs Section */}
-                                    {jobResults.filter(j => j.source !== 'Google Jobs').length > 0 && (
+                                    {jobResults.filter(j => j.source !== 'Google Jobs' && j.source !== 'Tavily').length > 0 && (
                                         <div className="space-y-4">
                                             <h4 className="text-md font-semibold text-primary flex items-center">
                                                 <BrainCircuit className="mr-2 h-4 w-4" /> Internal Database Jobs
                                             </h4>
                                             <div className="grid gap-4">
-                                                {jobResults.filter(j => j.source !== 'Google Jobs').map((job) => (
+                                                {jobResults.filter(j => j.source !== 'Google Jobs' && j.source !== 'Tavily').map((job) => (
                                                     <Card key={job.id} className="hover:bg-muted/50 transition-colors border-l-4 border-l-green-500">
                                                         <CardContent className="p-4 flex items-start justify-between">
                                                             <div className="space-y-1">

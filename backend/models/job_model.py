@@ -23,6 +23,7 @@ class Job(Base):
     salary_range = Column(String, nullable=True)
     url = Column(String, nullable=True)
     posted_date = Column(Date, nullable=True)
+    source = Column(String, nullable=True) # e.g. "Google Jobs", "Tavily", "Internal"
 
     # Relationship (job → applications)
     applications = relationship("Application", back_populates="job")

@@ -37,6 +37,7 @@ env/
 .env.*
 !.env.example
 
+
 # IDEs
 .vscode/
 .idea/
@@ -55,3 +56,19 @@ yarn-debug.log*
 yarn-error.log*
 frontend/dist/
 frontend/.vite/
+
+# Testing & Coverage
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Database (Explicit)
+*.db
+*.sqlite
+*.sqlite3
+
+# Secrets (Safety net)
+*.pem
+*.key
+*.p12

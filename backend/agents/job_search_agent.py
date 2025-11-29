@@ -39,6 +39,7 @@ def job_search_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             "company": job.company,
             "location": job.location,
             "description": job.description,
+            "source": job.source
         }
         for job in jobs
     ]

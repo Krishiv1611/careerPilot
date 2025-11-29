@@ -43,7 +43,7 @@ def skill_mapping_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                 prompt = PromptTemplate(
                     input_variables=["skills"],
                     template="""
-                    You are an expert recruiter. Based on these skills, generate a SINGLE, concise job search query for Google Jobs.
+                    You are an expert recruiter. Based on these skills, generate a SINGLE, concise and detailed  job search query for Google Jobs.
                     Focus on the most important technical roles.
                     
                     Skills: {skills}

@@ -26,6 +26,7 @@ def analyze(
     # Extract API keys from request
     google_api_key = request.google_api_key
     serpapi_api_key = request.serpapi_api_key
+    tavily_api_key = request.tavily_api_key
     
     # Validate that Google API key is provided (required)
     if not google_api_key:
@@ -40,6 +41,11 @@ def analyze(
         # Fallback to regular job search if SerpAPI key is missing
         use_serpapi = False
 
+    # Validate Tavily key if use_tavily is requested
+    use_tavily = request.use_tavily or False
+    if use_tavily and not tavily_api_key:
+        use_tavily = False
+
     graph = build_careerpilot_graph()
 
     initial_state = {
@@ -49,8 +55,10 @@ def analyze(
         "job_id": request.job_id,
         "search_query": request.search_query,
         "use_serpapi": use_serpapi,
+        "use_tavily": use_tavily,
         "google_api_key": google_api_key,  # Pass user's Google API key
         "serpapi_api_key": serpapi_api_key if use_serpapi else None,  # Pass SerpAPI key if needed
+        "tavily_api_key": tavily_api_key if use_tavily else None,
         "timestamp": "now",
         
         # Pass intermediate data if available

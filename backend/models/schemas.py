@@ -82,8 +82,10 @@ class CareerPilotRequest(BaseModel):
     job_id: Optional[str] = None
     search_query: Optional[str] = None
     use_serpapi: Optional[bool] = False  # Flag to use SerpAPI for job search
+    use_tavily: Optional[bool] = False   # Flag to use Tavily for job search
     google_api_key: Optional[str] = None
     serpapi_api_key: Optional[str] = None
+    tavily_api_key: Optional[str] = None
     
     # Optional intermediate data to skip steps
     resume_text: Optional[str] = None

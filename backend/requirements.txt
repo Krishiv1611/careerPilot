@@ -1,6 +1,7 @@
 # FastAPI + Server
 fastapi
 uvicorn[standard]
+gunicorn
 
 # LangGraph (agentic workflow)
 langchain
@@ -21,6 +22,7 @@ cryptography
 
 # Database
 sqlalchemy
+psycopg2-binary
 pydantic[email]
 email-validator
 langchain-chroma
@@ -37,6 +39,7 @@ chromadb
 
 # Job Search (SerpAPI)
 google-search-results   # serpapi official client
+tavily-python
 
 # Utilities
 python-dotenv
