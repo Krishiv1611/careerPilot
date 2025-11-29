@@ -132,7 +132,7 @@ This method guarantees the application runs exactly as intended, isolating depen
 
 1.  **Clone the Repository**
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/Krishiv1611/careerPilot.git
     cd careerPilot
     ```
 
@@ -215,3 +215,4 @@ If you wish to run the services directly on your machine for development:
 ---
 
 *Powered by Advanced Agentic AI. Engineered for Career Success.*
+
