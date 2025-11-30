@@ -172,3 +172,30 @@ class UserResponse(BaseModel):
     
     class Config:
         orm_mode = True
+
+
+# ==========================================================
+# Roadmap Schemas
+# ==========================================================
+class RoadmapRequest(BaseModel):
+    job_id: str
+    resume_id: str
+    google_api_key: str
+
+
+class RoadmapStepModel(BaseModel):
+    step_number: int
+    title: str
+    description: str
+    resources: List[str]
+    estimated_time: str
+
+
+class RoadmapResponse(BaseModel):
+    id: str
+    job_id: str
+    content: List[RoadmapStepModel]
+    created_at: str
+
+    class Config:
+        orm_mode = True

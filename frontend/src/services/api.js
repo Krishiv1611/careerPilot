@@ -76,4 +76,32 @@ export const deleteApplication = async (appId) => {
     return response.data;
 };
 
+export const createRoadmap = async (jobId, resumeId, googleApiKey) => {
+    const response = await api.post('/roadmap/create', {
+        job_id: jobId,
+        resume_id: resumeId,
+        google_api_key: googleApiKey
+    });
+    return response.data;
+};
+
+export const getRoadmap = async (jobId) => {
+    try {
+        const response = await api.get(`/roadmap/${jobId}`);
+        return response.data;
+    } catch (error) {
+        if (error.response && error.response.status === 404) {
+            return null;
+        }
+        throw error;
+    }
+};
+
+export const downloadResumePDF = async (text) => {
+    const response = await api.post('/resume/download-pdf', { text }, {
+        responseType: 'blob', // Important for file download
+    });
+    return response.data;
+};
+
 export default api;

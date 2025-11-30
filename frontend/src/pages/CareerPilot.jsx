@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { getAllResumes, runCareerPilot } from '../services/api';
+import { getAllResumes, runCareerPilot, createRoadmap, getRoadmap, downloadResumePDF } from '../services/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { BrainCircuit, Search, Loader2, FileText, CheckCircle, AlertCircle, Briefcase, ExternalLink } from 'lucide-react';
+import { BrainCircuit, Search, Loader2, FileText, CheckCircle, AlertCircle, Briefcase, ExternalLink, Map, Download } from 'lucide-react';
 
 
 const CareerPilot = () => {
@@ -18,13 +18,15 @@ const CareerPilot = () => {
 
     const [pendingAction, setPendingAction] = useState(null); // 'search' or 'analyze'
     const [pendingJobId, setPendingJobId] = useState(null); // for analyze action
+    const [roadmapLoading, setRoadmapLoading] = useState(null); // jobId being processed
 
     // Two stages of results:
     // 1. Job Search Results (List of jobs)
     // 2. Analysis Result (Specific job analysis)
     const [jobResults, setJobResults] = useState([]);
     const [analysisResult, setAnalysisResult] = useState(null);
-    const [activeTab, setActiveTab] = useState('analysis'); // 'analysis', 'resume', 'cover_letter'
+    const [activeTab, setActiveTab] = useState('analysis'); // 'analysis', 'resume', 'cover_letter', 'roadmap'
+    const [roadmapData, setRoadmapData] = useState(null);
 
     // Store intermediate resume data to avoid re-processing
     const [resumeData, setResumeData] = useState(null);
@@ -153,12 +155,67 @@ const CareerPilot = () => {
             setAnalysisResult(data);
             setActiveTab('analysis'); // Reset to main tab
 
+            // Check if roadmap exists
+            const existingRoadmap = await getRoadmap(jobId);
+            if (existingRoadmap) {
+                setRoadmapData(existingRoadmap.content);
+            } else {
+                setRoadmapData(null);
+            }
+
         } catch (err) {
             console.error(err);
             setError(err.response?.data?.detail || "Analysis failed. Please try again.");
         } finally {
             setLoading(false);
             setPendingJobId(null);
+        }
+    };
+
+    const handleCreateRoadmap = async (jobId) => {
+        setRoadmapLoading(jobId);
+        try {
+            const user = JSON.parse(localStorage.getItem('user'));
+            const googleApiKey = user ? localStorage.getItem(`googleApiKey_${user.id}`) : '';
+
+            if (!googleApiKey) {
+                alert("Google API Key is missing.");
+                return;
+            }
+
+            const data = await createRoadmap(jobId, selectedResume, googleApiKey);
+            setRoadmapData(data.content);
+
+            // If we are in analysis view, switch to roadmap tab
+            if (analysisResult && analysisResult.job_id === jobId) {
+                setActiveTab('roadmap');
+            } else {
+                alert("Roadmap created! Click 'Analyze Match' to view it.");
+            }
+
+        } catch (err) {
+            console.error(err);
+            alert("Failed to create roadmap.");
+        } finally {
+            setRoadmapLoading(null);
+        }
+    };
+
+    const handleDownloadPDF = async () => {
+        if (!analysisResult?.improved_resume) return;
+        try {
+            const blob = await downloadResumePDF(analysisResult.improved_resume);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "improved_resume.pdf";
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (err) {
+            console.error("Failed to download PDF", err);
+            alert("Failed to download PDF");
         }
     };
 
@@ -257,7 +314,7 @@ const CareerPilot = () => {
                                         Back to Jobs
                                     </Button>
                                 </div>
-                                <div className="flex space-x-2 mt-4">
+                                <div className="flex space-x-2 mt-4 overflow-x-auto pb-2">
                                     <Button
                                         variant={activeTab === 'analysis' ? "default" : "ghost"}
                                         size="sm"
@@ -278,6 +335,13 @@ const CareerPilot = () => {
                                         onClick={() => setActiveTab('cover_letter')}
                                     >
                                         <Briefcase className="mr-2 h-4 w-4" /> Cover Letter
+                                    </Button>
+                                    <Button
+                                        variant={activeTab === 'roadmap' ? "default" : "ghost"}
+                                        size="sm"
+                                        onClick={() => setActiveTab('roadmap')}
+                                    >
+                                        <Map className="mr-2 h-4 w-4" /> Roadmap
                                     </Button>
                                 </div>
                             </CardHeader>
@@ -323,6 +387,11 @@ const CareerPilot = () => {
 
                                 {activeTab === 'resume' && (
                                     <div className="space-y-4 animate-in fade-in-50">
+                                        <div className="flex justify-end">
+                                            <Button size="sm" variant="outline" onClick={handleDownloadPDF}>
+                                                <Download className="mr-2 h-4 w-4" /> Download PDF
+                                            </Button>
+                                        </div>
                                         <div className="rounded-md bg-muted p-4 overflow-auto max-h-[500px] whitespace-pre-wrap font-mono text-sm">
                                             {analysisResult.improved_resume || "No improved resume generated."}
                                         </div>
@@ -334,6 +403,57 @@ const CareerPilot = () => {
                                         <div className="rounded-md bg-muted p-4 overflow-auto max-h-[500px] whitespace-pre-wrap font-mono text-sm">
                                             {analysisResult.cover_letter || "No cover letter generated."}
                                         </div>
+                                    </div>
+                                )}
+
+                                {activeTab === 'roadmap' && (
+                                    <div className="space-y-4 animate-in fade-in-50">
+                                        {roadmapData ? (
+                                            <div className="space-y-6">
+                                                {roadmapData.map((step, index) => (
+                                                    <div key={index} className="flex gap-4">
+                                                        <div className="flex flex-col items-center">
+                                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm">
+                                                                {step.step_number}
+                                                            </div>
+                                                            {index < roadmapData.length - 1 && (
+                                                                <div className="w-0.5 flex-1 bg-border my-2"></div>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1 pb-6">
+                                                            <h4 className="font-semibold text-lg">{step.title}</h4>
+                                                            <p className="text-sm text-muted-foreground mt-1">{step.description}</p>
+                                                            <div className="mt-2 flex flex-wrap gap-2">
+                                                                <span className="text-xs font-medium bg-secondary px-2 py-1 rounded">
+                                                                    ⏱️ {step.estimated_time}
+                                                                </span>
+                                                            </div>
+                                                            {step.resources && step.resources.length > 0 && (
+                                                                <div className="mt-3">
+                                                                    <p className="text-xs font-semibold text-muted-foreground mb-1">Resources:</p>
+                                                                    <ul className="list-disc list-inside text-sm text-muted-foreground">
+                                                                        {step.resources.map((res, i) => (
+                                                                            <li key={i}>{res}</li>
+                                                                        ))}
+                                                                    </ul>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-8">
+                                                <p className="text-muted-foreground mb-4">No roadmap generated yet.</p>
+                                                <Button onClick={() => handleCreateRoadmap(analysisResult.job_id)} disabled={roadmapLoading === analysisResult.job_id}>
+                                                    {roadmapLoading === analysisResult.job_id ? (
+                                                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating Plan...</>
+                                                    ) : (
+                                                        "Generate Career Roadmap"
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </CardContent>
@@ -350,119 +470,63 @@ const CareerPilot = () => {
                                         <h3 className="text-lg font-semibold">Found {jobResults.length} Jobs</h3>
                                     </div>
 
-                                    {/* Online Jobs Section */}
-                                    {jobResults.filter(j => j.source === 'Google Jobs').length > 0 && (
-                                        <div className="space-y-4">
-                                            <h4 className="text-md font-semibold text-primary flex items-center">
-                                                <Search className="mr-2 h-4 w-4" /> Online Jobs (Google)
-                                            </h4>
-                                            <div className="grid gap-4">
-                                                {jobResults.filter(j => j.source === 'Google Jobs').map((job) => (
-                                                    <Card key={job.id} className="hover:bg-muted/50 transition-colors border-l-4 border-l-blue-500">
-                                                        <CardContent className="p-4 flex items-start justify-between">
-                                                            <div className="space-y-1">
-                                                                <h4 className="font-semibold text-lg">{job.title}</h4>
-                                                                <p className="text-sm text-muted-foreground">{job.company} • {job.location}</p>
-                                                                <p className="text-xs text-muted-foreground line-clamp-2 mt-2 max-w-md">
-                                                                    {job.description}
-                                                                </p>
-                                                            </div>
-                                                            <div className="flex gap-2">
-                                                                {job.url && (
-                                                                    <Button size="sm" variant="outline" onClick={() => window.open(job.url, '_blank')}>
-                                                                        Apply Now <ExternalLink className="ml-2 h-4 w-4" />
-                                                                    </Button>
-                                                                )}
-                                                                <Button size="sm" onClick={() => handleAnalyzeJob(job.id)} disabled={loading}>
-                                                                    {loading && pendingJobId === job.id ? (
-                                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                                    ) : (
-                                                                        "Analyze Match"
-                                                                    )}
-                                                                </Button>
-                                                            </div>
-                                                        </CardContent>
-                                                    </Card>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                                    {/* Job Cards Helper */}
+                                    {['Google Jobs', 'Tavily', 'Internal'].map(source => {
+                                        const jobs = jobResults.filter(j =>
+                                            source === 'Internal'
+                                                ? (j.source !== 'Google Jobs' && j.source !== 'Tavily')
+                                                : j.source === source
+                                        );
 
-                                    {/* Tavily Jobs Section */}
-                                    {jobResults.filter(j => j.source === 'Tavily').length > 0 && (
-                                        <div className="space-y-4">
-                                            <h4 className="text-md font-semibold text-primary flex items-center">
-                                                <Search className="mr-2 h-4 w-4" /> Web Search Results (Tavily)
-                                            </h4>
-                                            <div className="grid gap-4">
-                                                {jobResults.filter(j => j.source === 'Tavily').map((job) => (
-                                                    <Card key={job.id} className="hover:bg-muted/50 transition-colors border-l-4 border-l-purple-500">
-                                                        <CardContent className="p-4 flex items-start justify-between">
-                                                            <div className="space-y-1">
-                                                                <h4 className="font-semibold text-lg">{job.title}</h4>
-                                                                <p className="text-sm text-muted-foreground">{job.company} • {job.location}</p>
-                                                                <p className="text-xs text-muted-foreground line-clamp-2 mt-2 max-w-md">
-                                                                    {job.description}
-                                                                </p>
-                                                            </div>
-                                                            <div className="flex gap-2">
-                                                                {job.url && (
-                                                                    <Button size="sm" variant="outline" onClick={() => window.open(job.url, '_blank')}>
-                                                                        Apply Now <ExternalLink className="ml-2 h-4 w-4" />
-                                                                    </Button>
-                                                                )}
-                                                                <Button size="sm" onClick={() => handleAnalyzeJob(job.id)} disabled={loading}>
-                                                                    {loading && pendingJobId === job.id ? (
-                                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                                    ) : (
-                                                                        "Analyze Match"
-                                                                    )}
-                                                                </Button>
-                                                            </div>
-                                                        </CardContent>
-                                                    </Card>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                                        if (jobs.length === 0) return null;
 
-                                    {/* DB Jobs Section */}
-                                    {jobResults.filter(j => j.source !== 'Google Jobs' && j.source !== 'Tavily').length > 0 && (
-                                        <div className="space-y-4">
-                                            <h4 className="text-md font-semibold text-primary flex items-center">
-                                                <BrainCircuit className="mr-2 h-4 w-4" /> Internal Database Jobs
-                                            </h4>
-                                            <div className="grid gap-4">
-                                                {jobResults.filter(j => j.source !== 'Google Jobs' && j.source !== 'Tavily').map((job) => (
-                                                    <Card key={job.id} className="hover:bg-muted/50 transition-colors border-l-4 border-l-green-500">
-                                                        <CardContent className="p-4 flex items-start justify-between">
-                                                            <div className="space-y-1">
-                                                                <h4 className="font-semibold text-lg">{job.title}</h4>
-                                                                <p className="text-sm text-muted-foreground">{job.company} • {job.location}</p>
-                                                                <p className="text-xs text-muted-foreground line-clamp-2 mt-2 max-w-md">
-                                                                    {job.description}
-                                                                </p>
-                                                            </div>
-                                                            <div className="flex gap-2">
-                                                                {job.url && (
-                                                                    <Button size="sm" variant="outline" onClick={() => window.open(job.url, '_blank')}>
-                                                                        Apply Now <ExternalLink className="ml-2 h-4 w-4" />
-                                                                    </Button>
-                                                                )}
-                                                                <Button size="sm" onClick={() => handleAnalyzeJob(job.id)} disabled={loading}>
-                                                                    {loading && pendingJobId === job.id ? (
-                                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                                    ) : (
-                                                                        "Analyze Match"
+                                        return (
+                                            <div key={source} className="space-y-4">
+                                                <h4 className="text-md font-semibold text-primary flex items-center">
+                                                    {source === 'Google Jobs' && <Search className="mr-2 h-4 w-4" />}
+                                                    {source === 'Tavily' && <Search className="mr-2 h-4 w-4" />}
+                                                    {source === 'Internal' && <BrainCircuit className="mr-2 h-4 w-4" />}
+                                                    {source === 'Google Jobs' ? 'Online Jobs (Google)' : source === 'Tavily' ? 'Web Search Results (Tavily)' : 'Internal Database Jobs'}
+                                                </h4>
+                                                <div className="grid gap-4">
+                                                    {jobs.map((job) => (
+                                                        <Card key={job.id} className={`hover:bg-muted/50 transition-colors border-l-4 ${source === 'Google Jobs' ? 'border-l-blue-500' : source === 'Tavily' ? 'border-l-purple-500' : 'border-l-green-500'}`}>
+                                                            <CardContent className="p-4 flex items-start justify-between">
+                                                                <div className="space-y-1">
+                                                                    <h4 className="font-semibold text-lg">{job.title}</h4>
+                                                                    <p className="text-sm text-muted-foreground">{job.company} • {job.location}</p>
+                                                                    <p className="text-xs text-muted-foreground line-clamp-2 mt-2 max-w-md">
+                                                                        {job.description}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="flex gap-2 flex-col sm:flex-row">
+                                                                    {job.url && (
+                                                                        <Button size="sm" variant="outline" onClick={() => window.open(job.url, '_blank')}>
+                                                                            Apply <ExternalLink className="ml-2 h-4 w-4" />
+                                                                        </Button>
                                                                     )}
-                                                                </Button>
-                                                            </div>
-                                                        </CardContent>
-                                                    </Card>
-                                                ))}
+                                                                    <Button size="sm" onClick={() => handleAnalyzeJob(job.id)} disabled={loading}>
+                                                                        {loading && pendingJobId === job.id ? (
+                                                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                        ) : (
+                                                                            "Analyze"
+                                                                        )}
+                                                                    </Button>
+                                                                    <Button size="sm" variant="secondary" onClick={() => handleCreateRoadmap(job.id)} disabled={roadmapLoading === job.id}>
+                                                                        {roadmapLoading === job.id ? (
+                                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                                        ) : (
+                                                                            <Map className="h-4 w-4" />
+                                                                        )}
+                                                                    </Button>
+                                                                </div>
+                                                            </CardContent>
+                                                        </Card>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 /* Empty State (but with ATS score if available) */

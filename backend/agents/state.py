@@ -76,6 +76,11 @@ class CareerPilotState(TypedDict, total=False):
     ats_report: str
 
     # ----------------------------
+    # Roadmap
+    # ----------------------------
+    roadmap: List[Dict[str, Any]]
+
+    # ----------------------------
     # Application Saving
     # ----------------------------
     application_id: Optional[str]

@@ -27,6 +27,7 @@ pydantic[email]
 email-validator
 langchain-chroma
 
+
 # PDF / Resume Processing
 pypdf
 pdfplumber
@@ -54,3 +55,5 @@ scikit-learn
 aiohttp
 streamlit
 
+
+reportlab

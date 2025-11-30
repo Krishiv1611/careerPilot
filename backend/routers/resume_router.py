@@ -13,6 +13,7 @@ from services.skill_extractor import SkillExtractor
 from services.ats_service import ATSService
 from typing import Optional
 from fastapi import Form
+from pydantic import BaseModel
 import os
 
 from models.user_model import User
@@ -118,3 +119,48 @@ def delete_resume(
     db.commit()
 
     return {"message": "Resume deleted successfully"}
+
+
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import simpleSplit
+from io import BytesIO
+from fastapi.responses import StreamingResponse
+
+class PDFRequest(BaseModel):
+    text: str
+
+@router.post("/download-pdf")
+def download_pdf(request: PDFRequest):
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+    
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(50, height - 50, "Improved Resume")
+    
+    p.setFont("Helvetica", 12)
+    y = height - 80
+    margin = 50
+    max_width = width - 2 * margin
+    
+    for line in request.text.split('\n'):
+        # Simple text wrapping
+        wrapped_lines = simpleSplit(line, "Helvetica", 12, max_width)
+        for wrapped_line in wrapped_lines:
+            if y < 50:
+                p.showPage()
+                p.setFont("Helvetica", 12)
+                y = height - 50
+            
+            p.drawString(margin, y, wrapped_line)
+            y -= 15
+            
+    p.save()
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        buffer, 
+        media_type="application/pdf", 
+        headers={"Content-Disposition": "attachment; filename=improved_resume.pdf"}
+    )
