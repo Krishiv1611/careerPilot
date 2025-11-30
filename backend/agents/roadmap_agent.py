@@ -22,7 +22,7 @@ def generate_roadmap(resume_text: str, job_description: str, google_api_key: str
     """
     
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-2.5-flash-lite",
         temperature=0.3,
         google_api_key=google_api_key
     )
