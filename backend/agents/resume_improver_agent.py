@@ -59,42 +59,35 @@ def resume_improver_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             "fit_explanation",
         ],
         template="""
-You are an elite resume optimization engine. Rewrite the following resume so that it is more
-compelling, clearer, better structured, and better aligned with the job description.
+You are an expert Resume Writer and Career Coach. Your task is to rewrite the candidate's resume to be **ATS-Optimized** and **highly relevant** to the target Job Description, while adhering to **STRICT TRUTHFULNESS**.
 
-STRICT RULES:
-- Do NOT invent fake experience, projects, or technologies.
-- Do NOT add any new job titles, companies, dates, or degrees.
-- You MAY strengthen bullet points using resume’s actual content.
-- You MAY reorganize, condense, or improve clarity.
-- If the resume implicitly shows a missing skill (e.g., Python coding project → add "Python" once),
-  you MAY add it. Otherwise, do NOT fabricate it.
-- Keep formatting ATS-friendly (no tables, columns, icons).
-- Use clean bullet points.
-- Prioritize clarity and alignment with job requirements.
-- NO markdown formatting, just plaintext resume output.
-
-DATA FOR IMPROVING RESUME:
-
----------------------------
+INPUT DATA:
+-----------
 CURRENT RESUME:
 {resume_text}
 
----------------------------
 JOB DESCRIPTION:
 {jd_text}
 
----------------------------
-MISSING SKILLS (may include only if context supports):
+MISSING SKILLS (Integrate ONLY if supported by context):
 {missing_skills}
 
----------------------------
-FIT ANALYSIS (use for emphasis):
+FIT ANALYSIS:
 {fit_explanation}
 
----------------------------
+--------------------------------------------------
+CRITICAL RULES (ZERO HALLUCINATION):
+1. **NO FAKE INFO**: Do NOT invent companies, job titles, dates, or degrees. Do NOT add specific numbers (e.g., "increased by 20%") unless they are in the original text.
+2. **NO FAKE SKILLS**: Do NOT list skills the candidate clearly doesn't have. If the JD asks for "React" and the resume has "JavaScript frontend experience", you MAY infer "React" only if there's strong evidence. Otherwise, do not add it.
+3. **REPHRASE & ALIGN**: You MAY rewrite bullet points to use keywords from the JD. For example, if the JD asks for "Cross-functional collaboration" and the resume says "Worked with other teams", change it to "Collaborated cross-functionally with engineering and design teams".
+4. **STRONG VERBS**: Start every bullet with a strong action verb (e.g., Engineered, Developed, Spearheaded, Optimized).
+5. **ATS FORMAT**: Output a clean, plain-text resume. Use standard sections: SUMMARY, EXPERIENCE, SKILLS, EDUCATION, PROJECTS. No fancy markdown tables or icons.
 
-Produce ONLY the improved resume (plain text).
+GOAL:
+Make the resume sound as professional and well-matched to the JD as possible *without lying*. Highlight the experience that matters most for *this* job.
+
+OUTPUT:
+Produce ONLY the improved resume text.
 """
     )
 
