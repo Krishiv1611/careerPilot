@@ -1,31 +1,43 @@
-# Use an official Python runtime as a parent image
-FROM python:3.10-slim
+# ==========================================
+# Stage 1: Builder
+# ==========================================
+FROM python:3.10-slim as builder
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Install system dependencies
-# build-essential for compiling some python packages
-# libmagic1 for file type detection (often needed)
+# Install build dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install python dependencies
+COPY requirements.txt .
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+# ==========================================
+# Stage 2: Final Runtime
+# ==========================================
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install runtime system dependencies only
+RUN apt-get update && apt-get install -y \
     libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the requirements file into the container at /app
-COPY requirements.txt .
+# Copy python dependencies from builder
+COPY --from=builder /root/.local /root/.local
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Ensure scripts are in PATH
+ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
 
-# Copy the rest of the application code
+# Copy application code
 COPY . .
 
-# Expose port 8000
+# Expose port
 EXPOSE 8000
-
-# Define environment variable
-ENV PYTHONUNBUFFERED=1
 
 # Run the application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
