@@ -41,7 +41,7 @@ class EmbeddingService:
         )
 
         if persist_dir is None:
-            persist_dir = os.path.join(BASE_DIR, "backend/data/vectorstore/chroma")
+            persist_dir = os.path.join(BASE_DIR, "data/vectorstore/chroma")
 
         self.persist_dir = persist_dir
         self.collection_name = collection_name

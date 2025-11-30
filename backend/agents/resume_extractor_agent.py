@@ -22,7 +22,6 @@ def resume_extractor_agent(state):
     # Correct absolute path to the saved file
     file_path = os.path.join(
         os.getcwd(),
-        "backend",
         "data",
         "resumes",
         f"{resume_id}.pdf"
