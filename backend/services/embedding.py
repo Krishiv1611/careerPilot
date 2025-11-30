@@ -1,7 +1,7 @@
 # services/embeddings.py
 
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain_core.documents import Document
 from typing import List
 import os
@@ -9,18 +9,30 @@ import os
 
 class EmbeddingService:
     """
-    Embedding + VectorStore using SentenceTransformers
+    Embedding + VectorStore using Google Generative AI (Gemini)
     with ChromaDB (LangChain wrapper).
     Supports retrievers for semantic search.
     """
 
     def __init__(
         self,
-        model_name: str = "all-MiniLM-L6-v2",
+        api_key: str = None,
+        model_name: str = "models/text-embedding-004",
         persist_dir: str = None,
         collection_name: str = "resume_chunks"
     ):
-        self.model = SentenceTransformerEmbeddings(model_name=model_name)
+        # Use provided key or fall back to env var
+        self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
+        
+        if not self.api_key:
+            # Fallback for when key is not yet available (e.g. app startup)
+            # We will handle this gracefully or raise error when actually used
+            print("Warning: No Google API Key provided for EmbeddingService")
+
+        self.model = GoogleGenerativeAIEmbeddings(
+            model=model_name,
+            google_api_key=self.api_key
+        )
 
         BASE_DIR = os.path.dirname(
             os.path.dirname(

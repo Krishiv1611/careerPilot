@@ -34,8 +34,8 @@ class SkillExtractor:
     5. Categorization
     """
 
-    def __init__(self):
-        self.embedder = EmbeddingService()  # for semantic matching
+    def __init__(self, api_key: str = None):
+        self.embedder = EmbeddingService(api_key=api_key)  # for semantic matching
 
     # -----------------------------------------
     # Normalize using alias rules

@@ -35,15 +35,16 @@ This guide will help you deploy your **CareerPilot** application for free using 
     - **Instance Type**: **Free**.
 
 3.  **Environment Variables** (Crucial Step!)
-    - Add the following keys:
+    - Add the following keys in the Render Dashboard:
         - `DATABASE_URL`: Paste the **Neon Connection String** you copied in Part 1.
-        - `CORS_ORIGINS`: `*` (or your Vercel URL later).
-        - `DATABASE_URL`: Paste the **Neon Connection String** you copied in Part 1.
-        - `CORS_ORIGINS`: `*` (or your Vercel URL later).
+        - `CORS_ORIGINS`: `https://careerpilot.vercel.app` (This will be your Vercel frontend URL. For now, you can use `*` to allow all, then update it after deploying frontend).
         - `PORT`: `8000`.
-        - `SECRET_KEY`: (Generate a random string for JWT).
-
-    > **Note**: API Keys (Google, SerpAPI, Tavily) are now managed **Client-Side** by the user in the application settings. You do **NOT** need to add them here.
+        - `SECRET_KEY`: Generate a strong random string (e.g., `openssl rand -hex 32`).
+        - `GOOGLE_API_KEY`: Your Google API Key (if used by backend).
+        - `SERPAPI_API_KEY`: Your SerpAPI Key.
+        - `TAVILY_SEARCH_API_KEY`: Your Tavily Key.
+        
+    > **Important**: Do NOT use `localhost` URLs here. The backend runs in the cloud, so `localhost` would refer to the container itself, not your machine.
 
 4.  **Deploy**
     - Click **Create Web Service**.
@@ -65,6 +66,7 @@ This guide will help you deploy your **CareerPilot** application for free using 
 3.  **Environment Variables**
     - **Key**: `VITE_BACKEND_URL`
     - **Value**: Your Render Backend URL (e.g., `https://careerpilot-backend.onrender.com`).
+    - **Important**: This must be set **BEFORE** you click Deploy, as it is baked into the app during the build process.
 
 4.  **Deploy**
     - Click **Deploy**.

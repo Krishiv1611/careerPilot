@@ -34,7 +34,6 @@ python-docx
 pymupdf
 
 # Text Embeddings + Vectorstore
-sentence-transformers
 chromadb
 
 # Job Search (SerpAPI)

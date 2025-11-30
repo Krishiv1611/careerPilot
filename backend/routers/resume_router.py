@@ -47,7 +47,7 @@ async def upload_resume(
     cleaned = TextCleaner.clean_text(raw_text)
 
     # Extract Skills
-    extractor = SkillExtractor()
+    extractor = SkillExtractor(api_key=google_api_key)
     extracted_skills, skill_categories = extractor.extract_skills(cleaned)
 
     # Calculate ATS Score if key provided
