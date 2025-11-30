@@ -35,7 +35,7 @@ async def upload_resume(
         raise HTTPException(status_code=400, detail="Only PDF resumes are allowed.")
 
     file_id = str(uuid4())
-    file_path = f"backend/data/resumes/{file_id}.pdf"
+    file_path = f"data/resumes/{file_id}.pdf"
 
     # Save file
     with open(file_path, "wb") as f:
@@ -110,7 +110,7 @@ def delete_resume(
         raise HTTPException(status_code=404, detail="Resume not found.")
 
     # Delete file
-    file_path = f"backend/data/resumes/{resume.id}.pdf"
+    file_path = f"data/resumes/{resume.id}.pdf"
     if os.path.exists(file_path):
         os.remove(file_path)
 
