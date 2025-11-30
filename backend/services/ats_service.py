@@ -24,20 +24,28 @@ class ATSService:
             prompt = PromptTemplate(
                 input_variables=["resume_text"],
                 template="""
-You are an expert ATS (Applicant Tracking System) auditor. Analyze the following resume text.
+You are a strict, highly critical Applicant Tracking System (ATS) and expert resume auditor.
+Your job is to brutally evaluate the resume text below and assign a realistic score.
 
 RESUME TEXT:
 {resume_text}
 
-Evaluate based on:
-1. **Formatting & Structure**: Is it clean, standard sections (Experience, Education, Skills)?
-2. **Keywords & Content**: Are there strong action verbs? Specific skills?
-3. **Clarity**: Is it easy to read?
+SCORING CRITERIA (0-100):
+- **0-40 (Critical Fail)**: Missing essential sections (Experience, Skills), extremely short, or unintelligible.
+- **41-60 (Weak)**: Generic descriptions, no measurable results, poor formatting, overuse of buzzwords ("hard worker", "team player").
+- **61-75 (Average)**: Standard structure, lists duties but not achievements, lacks specific technical keywords.
+- **76-89 (Strong)**: Clear structure, strong action verbs, includes some metrics/numbers, good keyword density.
+- **90-100 (Exceptional)**: Perfect structure, every role has quantified achievements (e.g., "Increased revenue by 20%"), tailored technical skills, zero fluff.
+
+INSTRUCTIONS:
+1. Be critical. Do NOT give a high score (85+) unless the resume has **quantified achievements** (numbers, percentages) and specific technical depth.
+2. Deduct points for: generic summaries, lack of dates, spelling errors, or vague descriptions.
+3. If the resume is just a list of responsibilities without results, the score MUST be below 75.
 
 Return STRICT JSON:
 {{
-  "ats_score": number (0-100),
-  "ats_report": "Markdown string with 3-5 bullet points of specific feedback."
+  "ats_score": number (integer 0-100),
+  "ats_report": "Markdown string with 3-5 bullet points of specific, actionable feedback. Focus on what is missing or weak."
 }}
 """
             )
