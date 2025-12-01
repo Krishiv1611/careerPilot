@@ -27,10 +27,10 @@ const Login = () => {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-[80vh] gap-8 animate-fade-in">
+        <div className="flex flex-col items-center justify-center min-h-[80vh] gap-8 animate-fade-in mt-20">
             <div className="text-center space-y-2">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 mb-4 shadow-lg shadow-primary/25">
-                    <span className="text-3xl font-bold text-white">CP</span>
+                <div className="inline-flex items-center justify-center w-16 h-16 mb-4">
+                    <img src="/favicon.svg" alt="CareerPilot Logo" className="h-16 w-16" />
                 </div>
                 <h1 className="text-4xl font-bold tracking-tighter text-white">Welcome Back</h1>
                 <p className="text-muted-foreground text-lg">Enter your credentials to access your dashboard</p>

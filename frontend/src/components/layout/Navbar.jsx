@@ -24,8 +24,8 @@ const Navbar = ({ onOpenSettings }) => {
             <div className="flex h-16 items-center justify-between px-6 w-full max-w-7xl mx-auto">
                 <div className="flex items-center gap-8">
                     <Link to="/" className="flex items-center space-x-2">
-                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-bold">
-                            <Briefcase className="h-4 w-4" />
+                        <div className="h-8 w-8 rounded-lg flex items-center justify-center">
+                            <img src="/favicon.svg" alt="CareerPilot Logo" className="h-8 w-8" />
                         </div>
                         <span className="hidden font-bold sm:inline-block text-lg tracking-tight">
                             CareerPilot

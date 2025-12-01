@@ -87,9 +87,7 @@ const LandingPage = () => {
             <footer className="py-12 px-6 border-t border-white/10 mt-auto bg-black/40">
                 <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center font-bold text-white">
-                            CP
-                        </div>
+                        <img src="/favicon.svg" alt="CareerPilot Logo" className="h-8 w-8" />
                         <span className="font-bold text-xl tracking-tight">CareerPilot</span>
                     </div>
 

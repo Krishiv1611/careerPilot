@@ -84,7 +84,9 @@ const Home = () => {
                     <p className="text-muted-foreground mb-4">
                         Your resume score has improved by 15% since last week. Keep optimizing your keywords!
                     </p>
-                    <Button variant="outline" className="w-full glass-button">View Insights</Button>
+                    <Link to="/careerpilot">
+                        <Button variant="outline" className="w-full glass-button">View Insights</Button>
+                    </Link>
                 </Card>
             </div>
         </div>
