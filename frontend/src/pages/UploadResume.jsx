@@ -126,13 +126,13 @@ const UploadResume = () => {
                                 </div>
 
                                 {result.ats_score !== undefined && result.ats_score !== null && (
-                                    <div className="rounded-md bg-purple-50 p-4 border border-purple-100">
+                                    <div className="rounded-md bg-purple-500/10 p-4 border border-purple-500/20">
                                         <div className="flex items-center justify-between mb-2">
-                                            <h4 className="font-semibold text-purple-900">ATS Score</h4>
-                                            <span className="text-2xl font-bold text-purple-700">{result.ats_score}/100</span>
+                                            <h4 className="font-semibold text-purple-300">ATS Score</h4>
+                                            <span className="text-2xl font-bold text-purple-400">{result.ats_score}/100</span>
                                         </div>
                                         {result.ats_report && (
-                                            <div className="text-sm text-purple-800 whitespace-pre-wrap">
+                                            <div className="text-sm text-purple-200 whitespace-pre-wrap">
                                                 {result.ats_report}
                                             </div>
                                         )}

@@ -27,15 +27,20 @@ const Login = () => {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] gap-8">
+        <div className="flex flex-col items-center justify-center min-h-[80vh] gap-8 animate-fade-in">
             <div className="text-center space-y-2">
-                <h1 className="text-4xl font-bold tracking-tighter text-primary">CareerPilot AI</h1>
-                <p className="text-muted-foreground">Your AI-powered career assistant</p>
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 mb-4 shadow-lg shadow-primary/25">
+                    <span className="text-3xl font-bold text-white">CP</span>
+                </div>
+                <h1 className="text-4xl font-bold tracking-tighter text-white">Welcome Back</h1>
+                <p className="text-muted-foreground text-lg">Enter your credentials to access your dashboard</p>
             </div>
-            <Card className="w-full max-w-md">
-                <CardHeader>
-                    <CardTitle>Welcome Back</CardTitle>
-                    <CardDescription>Login to access your CareerPilot dashboard.</CardDescription>
+            <Card className="w-full max-w-md border-white/10 bg-black/40 backdrop-blur-xl">
+                <CardHeader className="space-y-1">
+                    <CardTitle className="text-2xl text-center">Login</CardTitle>
+                    <CardDescription className="text-center">
+                        Enter your email and password below
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
@@ -48,27 +53,34 @@ const Login = () => {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
+                                className="bg-white/5 border-white/10 focus:border-primary/50"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="password">Password</Label>
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="password">Password</Label>
+                                <Link to="#" className="text-sm text-primary hover:text-primary/80">
+                                    Forgot password?
+                                </Link>
+                            </div>
                             <Input
                                 id="password"
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
+                                className="bg-white/5 border-white/10 focus:border-primary/50"
                             />
                         </div>
 
-                        {error && <p className="text-sm text-destructive">{error}</p>}
+                        {error && <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm text-center border border-destructive/20">{error}</div>}
 
-                        <Button type="submit" className="w-full" disabled={loading}>
-                            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Login'}
+                        <Button type="submit" className="w-full h-11 text-base shadow-lg shadow-primary/20" disabled={loading}>
+                            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Sign In'}
                         </Button>
 
-                        <div className="text-center text-sm text-muted-foreground">
-                            Don't have an account? <Link to="/signup" className="text-primary hover:underline">Sign up</Link>
+                        <div className="text-center text-sm text-muted-foreground mt-4">
+                            Don't have an account? <Link to="/signup" className="text-primary hover:underline font-medium">Create account</Link>
                         </div>
                     </form>
                 </CardContent>

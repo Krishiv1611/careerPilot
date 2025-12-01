@@ -28,15 +28,20 @@ const Signup = () => {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] gap-8">
+        <div className="flex flex-col items-center justify-center min-h-[80vh] gap-8 animate-fade-in">
             <div className="text-center space-y-2">
-                <h1 className="text-4xl font-bold tracking-tighter text-primary">CareerPilot AI</h1>
-                <p className="text-muted-foreground">Join the future of job searching</p>
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 mb-4 shadow-lg shadow-primary/25">
+                    <span className="text-3xl font-bold text-white">CP</span>
+                </div>
+                <h1 className="text-4xl font-bold tracking-tighter text-white">Create Account</h1>
+                <p className="text-muted-foreground text-lg">Join thousands of professionals accelerating their careers</p>
             </div>
-            <Card className="w-full max-w-md">
-                <CardHeader>
-                    <CardTitle>Create Account</CardTitle>
-                    <CardDescription>Join CareerPilot to boost your career.</CardDescription>
+            <Card className="w-full max-w-md border-white/10 bg-black/40 backdrop-blur-xl">
+                <CardHeader className="space-y-1">
+                    <CardTitle className="text-2xl text-center">Sign Up</CardTitle>
+                    <CardDescription className="text-center">
+                        Enter your information to get started
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
@@ -49,6 +54,7 @@ const Signup = () => {
                                 value={fullName}
                                 onChange={(e) => setFullName(e.target.value)}
                                 required
+                                className="bg-white/5 border-white/10 focus:border-primary/50"
                             />
                         </div>
                         <div className="space-y-2">
@@ -60,6 +66,7 @@ const Signup = () => {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
+                                className="bg-white/5 border-white/10 focus:border-primary/50"
                             />
                         </div>
                         <div className="space-y-2">
@@ -70,17 +77,18 @@ const Signup = () => {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
+                                className="bg-white/5 border-white/10 focus:border-primary/50"
                             />
                         </div>
 
-                        {error && <p className="text-sm text-destructive">{error}</p>}
+                        {error && <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm text-center border border-destructive/20">{error}</div>}
 
-                        <Button type="submit" className="w-full" disabled={loading}>
-                            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Sign Up'}
+                        <Button type="submit" className="w-full h-11 text-base shadow-lg shadow-primary/20" disabled={loading}>
+                            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Create Account'}
                         </Button>
 
-                        <div className="text-center text-sm text-muted-foreground">
-                            Already have an account? <Link to="/login" className="text-primary hover:underline">Login</Link>
+                        <div className="text-center text-sm text-muted-foreground mt-4">
+                            Already have an account? <Link to="/login" className="text-primary hover:underline font-medium">Sign in</Link>
                         </div>
                     </form>
                 </CardContent>
