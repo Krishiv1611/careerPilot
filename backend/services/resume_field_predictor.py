@@ -42,15 +42,38 @@ class ResumeFieldPredictor:
             input_features = self.tfidf.transform([cleaned_text])
             prediction_id = self.model.predict(input_features)[0]
             
-            # Map prediction ID back to category name if necessary
-            # Assuming the model returns the string label directly as it's a classifier trained on labels
-            # If it returns a number, we need the mapping. 
-            # Based on standard sklearn usage with LabelEncoder, it might return int.
-            # However, if the target was string, it returns string.
-            # I will assume it returns the string or handle it if it is an int/code.
-            # To be safe, let's just return the prediction.
+            # Map prediction ID back to category name
+            category_mapping = {
+                15: "Java Developer",
+                23: "Testing",
+                8: "DevOps Engineer",
+                20: "Python Developer",
+                24: "Web Designing",
+                12: "HR",
+                13: "Hadoop",
+                3: "Blockchain",
+                10: "ETL Developer",
+                18: "Operations Manager",
+                6: "Data Science",
+                22: "Sales",
+                16: "Mechanical Engineer",
+                1: "Arts",
+                7: "Database",
+                11: "Electrical Engineering",
+                14: "Health and fitness",
+                19: "PMO",
+                4: "Business Analyst",
+                9: "DotNet Developer",
+                2: "Automation Testing",
+                17: "Network Security Engineer",
+                21: "SAP Developer",
+                5: "Civil Engineer",
+                0: "Advocate",
+            }
             
-            return str(prediction_id)
+            # Since model prediction is int
+            predicted_label = category_mapping.get(int(prediction_id), str(prediction_id))
+            return predicted_label
         except Exception as e:
             print(f"Error during prediction: {e}")
             return "Unknown"
