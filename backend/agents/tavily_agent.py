@@ -15,9 +15,15 @@ def tavily_job_search_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     3. Returns recommended jobs similar to job_search_agent
     """
     
-    query = state.get("search_query", "")
-    if not query:
+    raw_query = state.get("search_query", "")
+    if not raw_query:
         raise ValueError("search_query missing in state")
+    
+    # Append 'jobs' to the query if not present to ensure we find listings, not just definitions
+    if "job" not in raw_query.lower() and "career" not in raw_query.lower() and "opening" not in raw_query.lower():
+        query = f"{raw_query} jobs"
+    else:
+        query = raw_query
     
     db: Session = state["db"]
     tavily_key = state.get("tavily_api_key")
