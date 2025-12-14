@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph, END
 from agents.resume_extractor_agent import resume_extractor_agent
-from agents.skill_mapping_agent import skill_mapping_agent
+# from agents.skill_mapping_agent import skill_mapping_agent # REMOVED
 from agents.job_search_agent import job_search_agent
 from agents.serpapi_job_search_agent import serpapi_job_search_agent
 from agents.tavily_agent import tavily_job_search_agent
@@ -33,8 +33,7 @@ def build_careerpilot_graph():
     # Resume extractor → only uses state
     graph.add_node("resume_extractor", resume_extractor_agent)
 
-    # Skill mapping → only uses state
-    graph.add_node("skill_mapping", skill_mapping_agent)
+    # Skill mapping NODE REMOVED
     
     # ATS Score
     graph.add_node("ats_score", ats_score_agent)
@@ -96,11 +95,16 @@ def build_careerpilot_graph():
     
     graph.set_entry_point("resume_extractor")
     
-    graph.add_edge("resume_extractor", "skill_mapping")
-    graph.add_edge("resume_extractor", "ats_score")
+    # graph.add_edge("resume_extractor", "skill_mapping") # REMOVED
     
+    # Direct edge from extractor to router logic (handled by conditional edges usually, but here specific)
+    # Actually, the original graph went resume_extractor -> skill_mapping -> job_search_router
+    # We now go resume_extractor -> job_search_router
+    # But job_search_router was a conditional edge.
+    
+    # We need to add the conditional edge from resume_extractor using the router
     graph.add_conditional_edges(
-        "skill_mapping",
+        "resume_extractor",
         job_search_router,
         {
             "job_search": "job_search",
@@ -109,6 +113,10 @@ def build_careerpilot_graph():
             "skip_search": "jd_analyzer"
         }
     )
+
+    graph.add_edge("resume_extractor", "ats_score")
+    
+    # graph.add_conditional_edges("skill_mapping"...) REMOVED
     
     graph.add_edge("ats_score", END)
     

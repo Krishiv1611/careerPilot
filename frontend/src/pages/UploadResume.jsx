@@ -125,6 +125,19 @@ const UploadResume = () => {
                                     </div>
                                 </div>
 
+                                {/* Predicted Field */}
+                                {result.resume_category && (
+                                    <div className="rounded-md bg-blue-500/10 p-4 border border-blue-500/20">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h4 className="font-semibold text-blue-300">Predicted Field</h4>
+                                            <span className="text-xl font-bold text-blue-400">{result.resume_category}</span>
+                                        </div>
+                                        <p className="text-xs text-blue-200/70">
+                                            Based on our analysis of your resume content.
+                                        </p>
+                                    </div>
+                                )}
+
                                 {result.ats_score !== undefined && result.ats_score !== null && (
                                     <div className="rounded-md bg-purple-500/10 p-4 border border-purple-500/20">
                                         <div className="flex items-center justify-between mb-2">

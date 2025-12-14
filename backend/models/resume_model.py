@@ -20,6 +20,8 @@ class Resume(Base):
     ats_score = Column(Float, nullable=True)
     ats_report = Column(Text, nullable=True)
 
+    resume_category = Column(String, nullable=True)
+
     experience = Column(Text, nullable=True)
     education = Column(Text, nullable=True)
 

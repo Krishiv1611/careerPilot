@@ -47,6 +47,8 @@ requests
 beautifulsoup4
 numpy
 pandas
+matplotlib
+seaborn
 
 # Scoring / ML (optional lightweight)
 scikit-learn
@@ -55,5 +57,5 @@ scikit-learn
 aiohttp
 streamlit
 
-
+nltk
 reportlab

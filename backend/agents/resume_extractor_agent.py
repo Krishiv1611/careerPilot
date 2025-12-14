@@ -37,8 +37,17 @@ def resume_extractor_agent(state):
     embedder = EmbeddingService(collection_name="resume_chunks")
     embedder.add_chunks(resume_id=resume_id, chunks=chunks)
 
+    # Predict Field
+    from services.resume_field_predictor import ResumeFieldPredictor
+    predictor = ResumeFieldPredictor()
+    category = predictor.predict(full_text)
+    
+    print(f"[ResumeExtractor] Predicted Category: {category}")
+
     return {
         "resume_text": full_text,
         "extracted_skills": [],
-        "skill_categories": {}
+        "skill_categories": {},
+        "resume_category": category,
+        "search_query": category # Set search_query directly from prediction
     }

@@ -8,7 +8,7 @@ const Layout = ({ children }) => {
     return (
         <div className="min-h-screen bg-background font-sans antialiased">
             <Navbar onOpenSettings={() => setShowKeyModal(true)} />
-            <main className="container py-6">
+            <main className="w-full max-w-7xl mx-auto py-6 px-6">
                 {children}
             </main>
             <APIKeyModal open={showKeyModal} onOpenChange={setShowKeyModal} />

@@ -17,6 +17,7 @@ class ResumeCreateModel(BaseModel):
     education: Optional[str] = None
     ats_score: Optional[float] = None
     ats_report: Optional[str] = None
+    resume_category: Optional[str] = None
 
 
 class ResumeResponseModel(ResumeCreateModel):
@@ -98,7 +99,9 @@ class CareerPilotResponse(BaseModel):
     # Resume
     resume_text: Optional[str] = None
     extracted_skills: Optional[List[str]] = None
+    extracted_skills: Optional[List[str]] = None
     skill_categories: Optional[Dict[str, List[str]]] = None
+    resume_category: Optional[str] = None
 
     # Job
     job_id: Optional[str] = None

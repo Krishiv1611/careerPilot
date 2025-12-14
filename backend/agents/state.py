@@ -30,6 +30,7 @@ class CareerPilotState(TypedDict, total=False):
     # ----------------------------
     resume_text: str
     resume_chunks: List[str]
+    resume_category: str
 
     # ----------------------------
     # Skill Extraction

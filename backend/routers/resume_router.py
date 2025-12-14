@@ -56,6 +56,11 @@ async def upload_resume(
     if google_api_key:
         ats_result = ATSService.calculate_score(cleaned, google_api_key)
 
+    # Predict Field
+    from services.resume_field_predictor import ResumeFieldPredictor
+    predictor = ResumeFieldPredictor()
+    category = predictor.predict(cleaned)
+
     # Save in DB
     resume = Resume(
         id=file_id,
@@ -64,6 +69,7 @@ async def upload_resume(
         raw_text=cleaned,
         extracted_skills=extracted_skills,
         skill_categories=skill_categories,
+        resume_category=category,
         ats_score=ats_result.get("ats_score"),
         ats_report=ats_result.get("ats_report")
     )
