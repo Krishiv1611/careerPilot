@@ -19,11 +19,12 @@ def tavily_job_search_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     if not raw_query:
         raise ValueError("search_query missing in state")
     
-    # Append 'jobs' to the query if not present to ensure we find listings, not just definitions
+    # Append strict hiring keywords and exclude common non-job content
+    # This helps filter out courses, articles, and general info
     if "job" not in raw_query.lower() and "career" not in raw_query.lower() and "opening" not in raw_query.lower():
-        query = f"{raw_query} jobs"
+        query = f'{raw_query} "job openings" hiring now -course -tutorial -blog -article -news'
     else:
-        query = raw_query
+        query = f'{raw_query} hiring now -course -tutorial -blog -article -news'
     
     db: Session = state["db"]
     tavily_key = state.get("tavily_api_key")

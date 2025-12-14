@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph, END
 from agents.resume_extractor_agent import resume_extractor_agent
-# from agents.skill_mapping_agent import skill_mapping_agent # REMOVED
+from agents.query_manager_agent import query_manager_agent
 from agents.job_search_agent import job_search_agent
 from agents.serpapi_job_search_agent import serpapi_job_search_agent
 from agents.tavily_agent import tavily_job_search_agent
@@ -30,129 +30,127 @@ def build_careerpilot_graph():
     graph = StateGraph(CareerPilotState)
 
     # -------------------- Node wrappers --------------------
-    # Resume extractor → only uses state
     graph.add_node("resume_extractor", resume_extractor_agent)
-
-    # Skill mapping NODE REMOVED
     
+    # NEW: Query Manager optimizes the search string
+    graph.add_node("query_manager", query_manager_agent)
+
     # ATS Score
     graph.add_node("ats_score", ats_score_agent)
 
-    # job_search needs DB
-    graph.add_node(
-        "job_search",
-        job_search_agent
-    )
+    # Search Agents
+    graph.add_node("job_search", job_search_agent)
+    graph.add_node("serpapi_job_search", serpapi_job_search_agent)
+    graph.add_node("tavily_job_search", tavily_job_search_agent)
 
-    # serpapi_job_search needs DB
-    graph.add_node(
-        "serpapi_job_search",
-        serpapi_job_search_agent
-    )
-
-    # tavily_job_search needs DB
-    graph.add_node(
-        "tavily_job_search",
-        tavily_job_search_agent
-    )
-
-    # JD analyzer → only state
+    # Downstream Analysis
     graph.add_node("jd_analyzer", jd_analyzer_agent)
-
-    # Fit score (Gemini)
     graph.add_node("fit_score", fit_score_agent)
-
-    # Resume improver
     graph.add_node("resume_improver", resume_improver_agent)
-
-    # Cover letter
     graph.add_node("cover_letter", cover_letter_agent)
 
-    # Application saver needs DB
+    # Application Saver
     graph.add_node(
         "application_saver",
         lambda state: application_saver_agent(state, next(get_db()))
     )
     
+    # -------------------- Conditional Logic --------------------
+
+    def search_routing_logic(state):
+        # Decide which search agent to use or if we skip to analysis
+        route = job_search_router(state)
+        
+        # If we are doing a search, we might want to optimize the query first
+        if route in ["job_search", "serpapi_job_search", "tavily_job_search"]:
+            # If we extracted a category but haven't run query manager, run it
+            # But here we just route to query_manager, which will then route to the specific search
+            # To handle this simple graph, we can route TO query_manager, and pass the intended *search tool* 
+            # in state, OR simpler: Always run query_manager before search nodes if possible.
+            
+            # Since `job_search_router` returns the NODE name, we can intercept it.
+            return "query_manager" 
+            
+        return route
+
+    def query_manager_router(state):
+        # After optimizing query, determine which search tool to run
+        # We re-use logic or check flags
+        if state.get("use_serpapi"):
+            return "serpapi_job_search"
+        elif state.get("use_tavily"):
+            return "tavily_job_search"
+        else:
+            return "job_search"
+
     def join_logic(state):
         # This function decides where to go after search/resume processing
+        # OPTIMIZATION: STOP if no job is selected.
         
-        recommended_jobs = state.get("recommended_jobs")
         job_id = state.get("job_id")
         
-        # If we have a job_id (either from input or selected), we proceed to analysis
+        # If we have a selected job_id (e.g. from user input or forcing), proceed to analysis
         if job_id:
             return "jd_analyzer"
             
-        # If we have recommended jobs but no job_id, we stop (user needs to select)
-        if recommended_jobs and len(recommended_jobs) > 0:
-            return "end_search"
-            
-        # If no jobs found
+        # Otherwise, just END. The frontend will display results and user will pick one.
+        # This prevents running fit_score/cover_letter on nothing.
         return "end_search"
 
     # -------------------- Edges --------------------
     
     graph.set_entry_point("resume_extractor")
     
-    # graph.add_edge("resume_extractor", "skill_mapping") # REMOVED
-    
-    # Direct edge from extractor to router logic (handled by conditional edges usually, but here specific)
-    # Actually, the original graph went resume_extractor -> skill_mapping -> job_search_router
-    # We now go resume_extractor -> job_search_router
-    # But job_search_router was a conditional edge.
-    
-    # We need to add the conditional edge from resume_extractor using the router
+    # Parallel: Calculate ATS score immediately
+    graph.add_edge("resume_extractor", "ats_score")
+    graph.add_edge("ats_score", END)
+
+    # Router: Extractor -> Query Manager (if searching) -> Search Tool
     graph.add_conditional_edges(
         "resume_extractor",
-        job_search_router,
+        search_routing_logic,
         {
-            "job_search": "job_search",
-            "serpapi_job_search": "serpapi_job_search",
-            "tavily_job_search": "tavily_job_search",
-            "skip_search": "jd_analyzer"
+            "query_manager": "query_manager", # Creating strict search query
+            "skip_search": "jd_analyzer",     # If we already have job_id and skip search
+            "jd_analyzer": "jd_analyzer"      # Direct fallback
         }
     )
-
-    graph.add_edge("resume_extractor", "ats_score")
     
-    # graph.add_conditional_edges("skill_mapping"...) REMOVED
+    # From Query Manager -> Actual Search Tool
+    graph.add_conditional_edges(
+        "query_manager",
+        query_manager_router,
+        {
+            "serpapi_job_search": "serpapi_job_search",
+            "tavily_job_search": "tavily_job_search",
+            "job_search": "job_search"
+        }
+    )
     
-    graph.add_edge("ats_score", END)
-    
+    # After Search -> Conditional Stop
     graph.add_conditional_edges(
         "job_search",
         join_logic,
-        {
-            "jd_analyzer": "jd_analyzer",
-            "end_search": END
-        }
+        {"jd_analyzer": "jd_analyzer", "end_search": END}
     )
     
     graph.add_conditional_edges(
         "serpapi_job_search",
         join_logic,
-        {
-            "jd_analyzer": "jd_analyzer",
-            "end_search": END
-        }
+        {"jd_analyzer": "jd_analyzer", "end_search": END}
     )
 
     graph.add_conditional_edges(
         "tavily_job_search",
         join_logic,
-        {
-            "jd_analyzer": "jd_analyzer",
-            "end_search": END
-        }
+        {"jd_analyzer": "jd_analyzer", "end_search": END}
     )
 
-    # Analysis Pipeline (Sequential)
+    # Deep Analysis Pipeline (Only runs if job_id is present)
     graph.add_edge("jd_analyzer", "fit_score")
     graph.add_edge("fit_score", "resume_improver")
     graph.add_edge("resume_improver", "cover_letter")
     graph.add_edge("cover_letter", "application_saver")
-
     graph.add_edge("application_saver", END)
 
     return graph.compile()
