@@ -19,28 +19,31 @@ def jd_analyzer_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     # Load DB session + job_id
     # ----------------------------------------
     db: Session = state["db"]
-    job_id = state.get("job_id")
-
-    if not job_id:
-        return {
-            "job_description": "",
-            "job_skills": [],
-            "job_metadata": {}
-        }
-
-    # ----------------------------------------
-    # Get JD from database
-    # ----------------------------------------
-    job = db.query(Job).filter(Job.id == job_id).first()
-
-    if not job:
-        return {
-            "job_description": "",
-            "job_skills": [],
-            "job_metadata": {}
-        }
-
-    jd_text = job.description
+    # If manual JD is provided, use it directly
+    if state.get("manual_jd_text"):
+        jd_text = state["manual_jd_text"]
+        # Dummy job object for consistency if needed, or just proceed with text
+    else:
+        if not job_id:
+            return {
+                "job_description": "",
+                "job_skills": [],
+                "job_metadata": {}
+            }
+            
+        # ----------------------------------------
+        # Get JD from database
+        # ----------------------------------------
+        job = db.query(Job).filter(Job.id == job_id).first()
+    
+        if not job:
+            return {
+                "job_description": "",
+                "job_skills": [],
+                "job_metadata": {}
+            }
+    
+        jd_text = job.description
 
     # ----------------------------------------
     # Clean JD

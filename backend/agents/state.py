@@ -41,6 +41,7 @@ class CareerPilotState(TypedDict, total=False):
     # ----------------------------
     # Job Data + JD Analyzer
     # ----------------------------
+    manual_jd_text: Optional[str] # For manual JD analysis flow
     job_description: str
     job_skills: List[str]
 

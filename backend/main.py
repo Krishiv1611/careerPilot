@@ -11,6 +11,7 @@ from routers.careerpilot_router import router as careerpilot_router
 from routers.auth_router import router as auth_router
 from routers.settings_router import router as settings_router
 from routers.roadmap_router import router as roadmap_router
+from routers.manual_analysis_router import router as manual_analysis_router
 
 from models.database import Base, engine
 from models.user_model import User # Import to ensure table creation
@@ -75,6 +76,7 @@ app.include_router(job_router)
 app.include_router(application_router)
 app.include_router(careerpilot_router)
 app.include_router(roadmap_router)
+app.include_router(manual_analysis_router)
 
 
 # ==========================================================

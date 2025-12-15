@@ -61,6 +61,10 @@ def build_careerpilot_graph():
         # Decide which search agent to use or if we skip to analysis
         route = job_search_router(state)
         
+        # If manual JD text is provided, skip search entirely and go to analysis
+        if state.get("manual_jd_text"):
+            return "jd_analyzer"
+        
         # If we are doing a search, we might want to optimize the query first
         if route in ["job_search", "serpapi_job_search", "tavily_job_search"]:
             # If we extracted a category but haven't run query manager, run it

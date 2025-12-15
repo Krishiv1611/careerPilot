@@ -14,6 +14,7 @@ const Navbar = ({ onOpenSettings }) => {
         { name: 'Dashboard', path: '/dashboard', icon: Home },
         { name: 'Upload Resume', path: '/upload', icon: FileText },
         { name: 'Search Jobs', path: '/jobs', icon: Briefcase },
+        { name: 'Analyze JD', path: '/analyze-jd', icon: BrainCircuit },
         { name: 'Add Job', path: '/add-job', icon: PlusCircle },
         { name: 'Applications', path: '/applications', icon: List },
         { name: 'CareerPilot', path: '/careerpilot', icon: BrainCircuit },

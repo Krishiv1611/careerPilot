@@ -63,11 +63,12 @@ def query_manager_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         2. Includes 1-2 critical skills if they valid keywords (e.g. "Python", "React").
         3. MANDATORY: Includes specific intent keywords like "hiring", "jobs", "careers", "openings".
         4. MANDATORY: Excludes noise using the minus operator (e.g. -intern, -course, -tutorial, -blog, -news, -template).
-        5. Returns actual job listings, NOT definitions or articles.
+        5. MANDATORY: Target specific job boards by including: (site:linkedin.com OR site:indeed.com OR site:naukri.com OR site:glassdoor.com)
+        6. Returns actual job listings, NOT definitions or articles.
         
         Examples:
         - Input: Data Science, [Python, SQL]
-        - Output: "Data Scientist" AND "Python" AND "jobs" -course -tutorial -internship
+        - Output: "Data Scientist" AND "Python" AND "jobs" (site:linkedin.com OR site:indeed.com OR site:naukri.com) -course -tutorial -internship
         
         {format_instructions}
         

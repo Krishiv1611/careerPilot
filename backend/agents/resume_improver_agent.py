@@ -78,13 +78,14 @@ FIT ANALYSIS:
 --------------------------------------------------
 CRITICAL RULES (ZERO HALLUCINATION):
 1. **NO FAKE INFO**: Do NOT invent companies, job titles, dates, or degrees. Do NOT add specific numbers (e.g., "increased by 20%") unless they are in the original text.
-2. **NO FAKE SKILLS**: Do NOT list skills the candidate clearly doesn't have. If the JD asks for "React" and the resume has "JavaScript frontend experience", you MAY infer "React" only if there's strong evidence. Otherwise, do not add it.
-3. **REPHRASE & ALIGN**: You MAY rewrite bullet points to use keywords from the JD. For example, if the JD asks for "Cross-functional collaboration" and the resume says "Worked with other teams", change it to "Collaborated cross-functionally with engineering and design teams".
-4. **STRONG VERBS**: Start every bullet with a strong action verb (e.g., Engineered, Developed, Spearheaded, Optimized).
-5. **ATS FORMAT**: Output a clean, plain-text resume. Use standard sections: SUMMARY, EXPERIENCE, SKILLS, EDUCATION, PROJECTS. No fancy markdown tables or icons.
+2. **NO FAKE SKILLS**: Do NOT list skills the candidate clearly doesn't have.
+3. **KEYWORD OPTIMIZATION**: You MUST integrate relevant keywords from the JD into the bullet points where semantically appropriate. This is CRITICAL for ATS scoring.
+4. **REPHRASE & ALIGN**: Rewrite bullet points to match the JD's tone and terminology. If the JD asks for "Cross-functional collaboration" and the resume says "Worked with other teams", change it to "Collaborated cross-functionally with engineering and design teams".
+5. **STRONG VERBS**: Start every bullet with a strong action verb (e.g., Engineered, Developed, Spearheaded, Optimized).
+6. **ATS FORMAT**: Output a clean, plain-text resume. Use standard sections: SUMMARY, EXPERIENCE, SKILLS, EDUCATION, PROJECTS. No fancy markdown tables or icons.
 
 GOAL:
-Make the resume sound as professional and well-matched to the JD as possible *without lying*. Highlight the experience that matters most for *this* job.
+Produce a significantly improved version of the resume that utilizes the exact language and keywords from the JD to maximize the ATS score, while remaining 100% truthful to the candidate's actual experience.
 
 OUTPUT:
 Produce ONLY the improved resume text.

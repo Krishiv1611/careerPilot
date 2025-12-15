@@ -11,6 +11,7 @@ import Applications from './pages/Applications';
 import CareerPilot from './pages/CareerPilot';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import AnalyzeJD from './pages/AnalyzeJD';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
             <Route path="/upload" element={<RequireAuth><UploadResume /></RequireAuth>} />
             <Route path="/jobs" element={<RequireAuth><SearchJobs /></RequireAuth>} />
             <Route path="/add-job" element={<RequireAuth><AddJob /></RequireAuth>} />
+            <Route path="/analyze-jd" element={<RequireAuth><AnalyzeJD /></RequireAuth>} />
             <Route path="/applications" element={<RequireAuth><Applications /></RequireAuth>} />
             <Route path="/careerpilot" element={<RequireAuth><CareerPilot /></RequireAuth>} />
           </Routes>
