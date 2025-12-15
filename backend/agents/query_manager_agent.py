@@ -37,7 +37,7 @@ def query_manager_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         return {}
         
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash-lite",
+        model="gemini-2.5-flash",
         temperature=0.0,
         google_api_key=api_key,
         convert_system_message_to_human=True

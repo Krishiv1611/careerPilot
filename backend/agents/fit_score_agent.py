@@ -51,7 +51,7 @@ def fit_score_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError("Google API Key not found in state")
 
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash-lite",
+        model="gemini-2.5-flash",
         temperature=0.15,
         response_mime_type="application/json",
         google_api_key=google_api_key

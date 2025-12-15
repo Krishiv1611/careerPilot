@@ -33,7 +33,7 @@ def cover_letter_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError("Google API Key not found in state")
 
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash-lite",
+        model="gemini-2.5-flash",
         temperature=0.25,
         max_output_tokens=900,
         response_mime_type="text/plain",

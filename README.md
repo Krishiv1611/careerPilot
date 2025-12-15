@@ -31,23 +31,33 @@ CareerPilot AI is built upon a sophisticated **Multi-Agent System (MAS)** archit
 *   **AI Tech**: Deploys **Generative AI** to evaluate formatting, keyword density, and structural integrity against industry standards.
 *   **Outcome**: A granular score (0-100) and a strategic feedback report to immunize your resume against automated rejection.
 
-#### 3. Semantic Job Discovery Agent
+#### 3. Instant Resume Categorization Engine
+*   **Function**: Automatically segments your profile into professional domains.
+*   **AI Tech**: Deploys a **Trained Machine Learning Classifier** (TF-IDF + Random Forest) to predict your primary role from 25+ career categories (e.g., Data Science, DevOps, Java Development).
+*   **Outcome**: Ensures your profile is matched against the correct job market segment.
+
+#### 4. Semantic Job Discovery Agent
 *   **Function**: Scours internal databases and the live web for high-potential opportunities.
 *   **AI Tech**: Leverages **Neural Search** and **Vector Embeddings** to go beyond keyword matching, finding jobs that semantically align with your core competencies.
 *   **Integration**: Seamlessly connects with **SerpAPI** for real-time access to global job listings (Google Jobs).
 
-#### 4. Deep Fit Analysis Agent
-*   **Function**: The "Brain" of the operation. It reads job descriptions like a hiring manager.
-*   **AI Tech**: Uses **Large Language Models (LLMs)** (Google Gemini) to perform a multi-dimensional gap analysis between your profile and the target role.
+#### 5. Intelligent Query Manager
+*   **Function**: Intercepts and optimizes user intent before searching.
+*   **AI Tech**: Uses **Chain-of-Thought (CoT)** reasoning to transform vague inputs into precise boolean search strings, ensuring high-relevance results.
+*   **Outcome**: Drastically reduces noise in job search results.
+
+#### 6. Deep Fit Analysis Agent
+*   **Function**: The "Brain" of the operation. It reads job descriptions like a hiring manager. Supports both auto-matched jobs and **Manual Analysis** (pasting your own JD).
+*   **AI Tech**: Uses **Google Gemini 2.5 Flash** to perform a multi-dimensional gap analysis between your profile and the target role.
 *   **Outcome**: A "Fit Score" and a detailed diagnostic report highlighting strengths, weaknesses, and critical missing skills.
 
-#### 5. Generative Content Architect
+#### 7. Generative Content Architect
 *   **Function**: Autonomously drafts hyper-personalized application assets.
 *   **AI Tech**:
     *   **Resume Tailoring**: Reconstructs your resume to emphasize the specific skills and experiences demanded by the target job.
     *   **Cover Letter Synthesis**: Composes persuasive, context-aware cover letters that weave your narrative into the company's mission.
 
-#### 6. Personalized Career Roadmap Agent
+#### 8. Personalized Career Roadmap Agent
 *   **Function**: Generates a bespoke learning and preparation strategy for a specific target role.
 *   **AI Tech**: Analyzes the gap between your current profile and the job requirements to create a step-by-step action plan.
 *   **Outcome**: A structured roadmap containing milestones, resources, and timelines to bridge skill gaps and land the job.
@@ -61,7 +71,7 @@ The system is engineered as a robust, scalable, and containerized full-stack app
 ### Backend: The Neural Control Plane
 *   **Framework**: **FastAPI** (Python) for high-performance, asynchronous API handling.
 *   **Orchestration**: **LangGraph** manages the stateful, cyclic graphs of the agentic workflows.
-*   **Intelligence**: **Google Gemini Models** (via `langchain-google-genai`) provide the reasoning and generative capabilities.
+*   **Intelligence**: **Google Gemini 2.5 Flash** (via `langchain-google-genai`) provides the reasoning and generative capabilities.
 *   **Memory**: **PostgreSQL** (via **SQLAlchemy**) ensures ACID-compliant persistence of user data, resumes, and job history.
 *   **Vector Engine**: **ChromaDB** powers the semantic retrieval system, storing embeddings of resumes and job descriptions for similarity search.
 *   **Security**: **OAuth2** with **JWT** (JSON Web Tokens) and **Argon2** password hashing.
@@ -230,6 +240,9 @@ The backend exposes a comprehensive REST API documented via Swagger UI at `/docs
     *   **Input**: Resume ID, Job ID (optional), Search Query (optional).
     *   **Process**: Search -> Match -> Gap Analysis -> Tailoring.
     *   **Output**: Fit Score, Missing Skills, Improved Resume, Cover Letter.
+*   `POST /manual-analysis/analyze`: **Direct Analysis**.
+    *   **Input**: Manual JD Text + Resume ID.
+    *   **Process**: Skips search, directly analyzes the provided text against the resume.
 
 ---
 
@@ -264,6 +277,12 @@ The backend exposes a comprehensive REST API documented via Swagger UI at `/docs
     *   **Cover Letter**: Drafts a compelling narrative for your application.
     *   **Roadmap**: View a step-by-step plan to acquire the missing skills.
 4.  Use these AI-generated assets to apply with confidence.
+
+### Phase 5: Manual Analysis
+1.  Have a specific job description from another site?
+2.  Go to the **"Analyze Match"** section.
+3.  Paste the **Job Description** text directly.
+4.  The AI will run the full suite of analysis (Fit Score, Resume Tailoring) on your pasted text.
 
 ---
 

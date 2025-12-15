@@ -41,7 +41,7 @@ def resume_improver_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError("Google API Key not found in state")
 
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash-lite",
+        model="gemini-2.5-flash",
         temperature=0.15,
         max_output_tokens=1500,
         response_mime_type="text/plain",     # We want raw text
