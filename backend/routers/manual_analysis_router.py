@@ -57,6 +57,7 @@ async def analyze_manual_jd(
     # Note: We don't have a job_id, but the updated graph logic handles 'manual_jd_text'
     state = {
         "resume_text": resume_text,
+        "resume_id": request.resume_id,  # ADDED: pass resume_id so it can be saved if present
         "manual_jd_text": request.manual_jd_text, 
         "user_id": current_user.id,
         "db": db,

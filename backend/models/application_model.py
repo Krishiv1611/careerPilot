@@ -12,8 +12,8 @@ class Application(Base):
     id = Column(String, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
-    resume_id = Column(String, ForeignKey("resumes.id"), nullable=False)
-    job_id = Column(String, ForeignKey("jobs.id"), nullable=False)
+    resume_id = Column(String, ForeignKey("resumes.id"), nullable=True)
+    job_id = Column(String, ForeignKey("jobs.id"), nullable=True)
 
     overall_fit_score = Column(Float, nullable=False)
     skill_match_score = Column(Float, nullable=True)
