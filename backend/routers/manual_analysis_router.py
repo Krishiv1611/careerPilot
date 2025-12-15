@@ -10,7 +10,7 @@ from routers.auth_router import get_current_user
 from agents.graph import build_careerpilot_graph
 
 router = APIRouter(
-    prefix="/api/manual-analysis",
+    prefix="/manual-analysis",
     tags=["Manual Analysis"]
 )
 
