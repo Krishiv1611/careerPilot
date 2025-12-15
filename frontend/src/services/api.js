@@ -97,6 +97,11 @@ export const getRoadmap = async (jobId) => {
     }
 };
 
+export const analyzeManualJD = async (payload) => {
+    const response = await api.post('/manual-analysis/analyze', payload);
+    return response.data;
+};
+
 export const downloadResumePDF = async (text) => {
     const response = await api.post('/resume/download-pdf', { text }, {
         responseType: 'blob', // Important for file download
