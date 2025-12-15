@@ -4,16 +4,35 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { FileText, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
-import { analyzeManualJD } from '../services/api';
+import { analyzeManualJD, getAllResumes } from '../services/api';
 
 const AnalyzeJD = () => {
     const [jdText, setJdText] = useState('');
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
+    const [resumes, setResumes] = useState([]);
+    const [selectedResume, setSelectedResume] = useState('');
+
+    React.useEffect(() => {
+        const fetchResumes = async () => {
+            try {
+                const data = await getAllResumes();
+                setResumes(data);
+                if (data.length > 0) setSelectedResume(data[0].id);
+            } catch (err) {
+                console.error("Failed to fetch resumes", err);
+            }
+        };
+        fetchResumes();
+    }, []);
 
     const handleAnalyze = async () => {
         if (!jdText.trim()) return;
+        if (!selectedResume) {
+            setError("Please select a resume first.");
+            return;
+        }
 
         setLoading(true);
         setError(null);
@@ -32,6 +51,7 @@ const AnalyzeJD = () => {
             // Using the new endpoint we created
             const response = await analyzeManualJD({
                 manual_jd_text: jdText,
+                resume_id: selectedResume,
                 google_api_key: googleApiKey
             });
             setResult(response);
@@ -60,6 +80,21 @@ const AnalyzeJD = () => {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-muted-foreground">Select Resume</label>
+                        <select
+                            className="flex h-10 w-full rounded-md border border-input bg-black/20 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border-white/10"
+                            value={selectedResume}
+                            onChange={(e) => setSelectedResume(e.target.value)}
+                        >
+                            {resumes.length === 0 && <option value="">No resumes found</option>}
+                            {resumes.map(r => (
+                                <option key={r.id} value={r.id}>
+                                    {r.id.slice(0, 8)}... ({new Date(r.created_at).toLocaleDateString()})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                     <Textarea
                         placeholder="Paste the full job description here..."
                         className="min-h-[200px] bg-black/20 border-white/10 focus:border-primary/50 font-mono text-sm"
