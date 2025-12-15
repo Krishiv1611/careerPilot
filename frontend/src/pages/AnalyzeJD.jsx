@@ -20,9 +20,19 @@ const AnalyzeJD = () => {
         setResult(null);
 
         try {
+            // Get keys from localStorage
+            const user = JSON.parse(localStorage.getItem('user'));
+            const googleApiKey = user ? localStorage.getItem(`googleApiKey_${user.id}`) : '';
+
+            if (!googleApiKey) {
+                setError("Google API Key is missing. Please configure it in the header settings.");
+                return;
+            }
+
             // Using the new endpoint we created
             const response = await analyzeManualJD({
-                manual_jd_text: jdText
+                manual_jd_text: jdText,
+                google_api_key: googleApiKey
             });
             setResult(response);
         } catch (err) {

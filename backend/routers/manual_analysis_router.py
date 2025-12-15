@@ -18,6 +18,7 @@ class ManualAnalysisRequest(BaseModel):
     manual_jd_text: str
     resume_id: Optional[int] = None
     resume_text: Optional[str] = None
+    google_api_key: Optional[str] = None
 
 @router.post("/analyze")
 async def analyze_manual_jd(
@@ -59,7 +60,7 @@ async def analyze_manual_jd(
         "manual_jd_text": request.manual_jd_text, 
         "user_id": current_user.id,
         "db": db,
-        "google_api_key": current_user.google_api_key  # Ensure user has configured this
+        "google_api_key": request.google_api_key  # Ensure user has configured this
     }
 
     if not state["google_api_key"]:
