@@ -43,12 +43,12 @@ async def analyze_manual_jd(
             ).first()
             if not resume:
                 raise HTTPException(status_code=404, detail="Resume not found")
-            resume_text = resume.content_text
+            resume_text = resume.raw_text
         else:
             # Try to get latest resume for user
             fetch_resume = db.query(Resume).filter(Resume.user_id == current_user.id).order_by(Resume.created_at.desc()).first()
             if fetch_resume:
-                resume_text = fetch_resume.content_text
+                resume_text = fetch_resume.raw_text
             else:
                  raise HTTPException(status_code=400, detail="No resume provided or found for this user.")
 
