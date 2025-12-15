@@ -16,7 +16,7 @@ router = APIRouter(
 
 class ManualAnalysisRequest(BaseModel):
     manual_jd_text: str
-    resume_id: Optional[int] = None
+    resume_id: Optional[str] = None
     resume_text: Optional[str] = None
     google_api_key: Optional[str] = None
 

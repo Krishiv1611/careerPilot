@@ -24,6 +24,7 @@ def jd_analyzer_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         jd_text = state["manual_jd_text"]
         # Dummy job object for consistency if needed, or just proceed with text
     else:
+        job_id = state.get("job_id")
         if not job_id:
             return {
                 "job_description": "",
