@@ -31,6 +31,7 @@ MANIFEST
 venv/
 ENV/
 env/
+.tmp-*/
 
 # Environment Variables
 .env
@@ -46,6 +47,7 @@ env/
 
 # Project Specific
 backend/data/
+/data/
 # Keep the directory but ignore content (optional, if we want to track the dir)
 # !backend/data/.gitkeep
 
@@ -60,7 +62,9 @@ frontend/.vite/
 # Testing & Coverage
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
 .coverage
+coverage/
 htmlcov/
 
 # Database (Explicit)

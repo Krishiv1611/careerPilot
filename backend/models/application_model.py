@@ -15,7 +15,15 @@ class Application(Base):
     resume_id = Column(String, ForeignKey("resumes.id"), nullable=True)
     job_id = Column(String, ForeignKey("jobs.id"), nullable=True)
 
-    overall_fit_score = Column(Float, nullable=False)
+    status = Column(String, nullable=False, default="Saved")
+    status_source = Column(String, nullable=False, default="user")
+    next_action = Column(Text, nullable=True)
+    deadline = Column(DateTime, nullable=True)
+    follow_up_at = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)
+    timeline = Column(JSON, nullable=False, default=list)
+
+    overall_fit_score = Column(Float, nullable=True)
     skill_match_score = Column(Float, nullable=True)
     missing_skills = Column(JSON, nullable=True)         # LIST
     fit_explanation = Column(Text, nullable=True)

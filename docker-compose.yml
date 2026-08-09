@@ -1,4 +1,18 @@
 services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-careerpilot}
+      POSTGRES_USER: ${POSTGRES_USER:-careerpilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-locally}
+    volumes:
+      - careerpilot_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-careerpilot} -d ${POSTGRES_DB:-careerpilot}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build: ./backend
     image: krishiv16/careerpilot-backend:latest
@@ -6,23 +20,28 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/data:/app/backend/data # Persist data
-      - ./backend:/app # Optional: for hot reloading during dev (remove in prod)
+      - ./backend/data:/app/data
+      - ./backend:/app
     environment:
       - CORS_ORIGINS=http://localhost,http://localhost:5173,http://localhost:3000
-      # Add other env vars here or use env_file
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-careerpilot}:${POSTGRES_PASSWORD:-change-me-locally}@db:5432/${POSTGRES_DB:-careerpilot}
     env_file:
       - .env
+    depends_on:
+      db:
+        condition: service_healthy
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_BACKEND_URL: http://localhost:8000
     image: krishiv16/careerpilot-frontend:latest
     container_name: careerpilot-frontend
     ports:
       - "3000:80"
     depends_on:
       - backend
-    environment:
-      - VITE_BACKEND_URL=http://localhost:8000 # This is tricky in build time vs runtime. 
-      # Note: Vite env vars are embedded at BUILD time. 
-      # If you change this, you need to rebuild the frontend image.
+
+volumes:
+  careerpilot_postgres_data:

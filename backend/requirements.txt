@@ -1,61 +1,34 @@
-# FastAPI + Server
-fastapi
-uvicorn[standard]
-gunicorn
+# API and server
+fastapi>=0.128,<1
+uvicorn[standard]>=0.40,<1
+gunicorn>=23,<24
+python-multipart>=0.0.21,<1
+python-dotenv>=1.1,<2
 
-# LangGraph (agentic workflow)
-langchain
-langgraph
-langchain-core
-langchain-community
-langchain-huggingface
-langchain-groq     # if using Groq LLMs (optional)
-  # if using Gemini (optional)
-langchain-google-genai
-python-multipart
+# Database and migrations
+SQLAlchemy>=2.0.43,<3
+psycopg2-binary>=2.9.11,<3
+alembic>=1.16,<2
+pydantic>=2.11,<3
+email-validator>=2.3,<3
 
-# Auth & Security
-python-jose[cryptography]
-passlib[argon2]
-argon2-cffi
-cryptography
+# Authentication and secure server-side integrations
+python-jose[cryptography]>=3.5,<4
+passlib[argon2]>=1.7.4,<2
+argon2-cffi>=25.1,<26
+cryptography>=46,<47
 
-# Database
-sqlalchemy
-psycopg2-binary
-pydantic[email]
-email-validator
-langchain-chroma
+# Focused multi-agent workflow and GitHub MCP
+langgraph==0.6.4
+mcp>=1.13,<3
+httpx>=0.28,<1
 
+# Real job providers
+requests>=2.32,<3
+tavily-python>=0.7.17,<1
 
-# PDF / Resume Processing
-pypdf
-pdfplumber
-python-docx
-pymupdf
-
-# Text Embeddings + Vectorstore
-chromadb
-
-# Job Search (SerpAPI)
-google-search-results   # serpapi official client
-tavily-python
-
-# Utilities
-python-dotenv
-requests
-beautifulsoup4
-numpy
-pandas
-matplotlib
-seaborn
-
-# Scoring / ML (optional lightweight)
-scikit-learn
-
-# For async operations
-aiohttp
-streamlit
-
-nltk
-reportlab
+# Resume ingestion and export
+pypdf>=6,<7
+python-docx>=1.2,<2
+reportlab>=4.4,<5
+scikit-learn==1.7.2

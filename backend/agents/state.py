@@ -1,93 +1,38 @@
-from typing import List, Dict, Any, TypedDict, Optional
-from sqlalchemy.orm import Session
+from typing import Callable, Literal, TypedDict
 
 
-class CareerPilotState(TypedDict, total=False):
-    """
-    Global state shared across all agents in the CareerPilot workflow.
-    """
+JobProvider = Callable[[str], tuple[list[dict], str | None]]
+CareerTrackPredictor = Callable[..., dict]
+CareerTask = Literal[
+    "discover_jobs",
+    "analyze_resume",
+    "edit_resume",
+    "rank_github_evidence",
+    "suggest_career_tracks",
+]
 
-    # ----------------------------
-    # System & DB
-    # ----------------------------
-    db: Session                 # SQLAlchemy session passed into graph
-    user_id: int                # Authenticated user ID
 
-    # ----------------------------
-    # User Inputs
-    # ----------------------------
-    resume_id: str             # PDF path OR resume table ID
-    job_id: str                # Selected job ID (JD source)
-    search_query: Optional[str]  # For job search pipeline
-    use_serpapi: Optional[bool]
-    use_tavily: Optional[bool]
-    google_api_key: Optional[str] # User provided API key
-    serpapi_api_key: Optional[str] # User provided API key
-    tavily_api_key: Optional[str] # User provided API key
+class CareerWorkflowState(TypedDict, total=False):
+    task: CareerTask
 
-    # ----------------------------
-    # Resume Extraction
-    # ----------------------------
+    role: str
+    location: str | None
+    employment_type: str | None
+    providers: list[JobProvider]
+    job_search_result: dict
+
     resume_text: str
-    resume_chunks: List[str]
-    resume_category: str
-
-    # ----------------------------
-    # Skill Extraction
-    # ----------------------------
-    extracted_skills: List[str]
-    skill_categories: Dict[str, List[str]]
-
-    # ----------------------------
-    # Job Data + JD Analyzer
-    # ----------------------------
-    manual_jd_text: Optional[str] # For manual JD analysis flow
+    current_resume_text: str
     job_description: str
-    job_skills: List[str]
+    instruction: str
+    resume_analysis: dict
+    resume_edit_result: dict
 
-    job_metadata: Dict[str, Any]  # {
-                                  #   top_matching_chunks: [...]
-                                  #   chunk_sources: [...]
-                                  #   semantic_scores: [...]
-                                  #   avg_semantic_score: float
-                                  # }
+    missing_skills: list[str]
+    repository_evidence: list[dict]
+    github_project_result: dict
 
-    # ----------------------------
-    # Job Search Results
-    # ----------------------------
-    recommended_jobs: Optional[List[Dict[str, Any]]]  # List of job recommendations from search
-    serpapi_error: Optional[str]
-    serpapi_warning: Optional[str]
-    tavily_error: Optional[str]
-    tavily_warning: Optional[str]
+    career_track_predictor: CareerTrackPredictor
+    career_track_result: dict
 
-    # ----------------------------
-    # Fit Scoring (ATS)
-    # ----------------------------
-    missing_skills: List[str]
-    skill_match_score: float
-    overall_fit_score: float
-    fit_explanation: str
-
-    # ----------------------------
-    # AI-Generated Content
-    # ----------------------------
-    improved_resume: str
-    cover_letter: str
-    ats_score: float
-    ats_report: str
-
-    # ----------------------------
-    # Roadmap
-    # ----------------------------
-    roadmap: List[Dict[str, Any]]
-
-    # ----------------------------
-    # Application Saving
-    # ----------------------------
-    application_id: Optional[str]
-
-    # ----------------------------
-    # System Metadata
-    # ----------------------------
-    timestamp: str
+    handled_by: str

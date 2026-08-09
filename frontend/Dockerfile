@@ -1,5 +1,5 @@
 # Stage 1: Build the React application
-FROM node:20-alpine as build
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
@@ -11,6 +11,10 @@ RUN npm ci
 
 # Copy the rest of the application code
 COPY . .
+
+# Vite embeds the API origin during the build.
+ARG VITE_BACKEND_URL=http://127.0.0.1:8000
+ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
 
 # Build the application
 RUN npm run build

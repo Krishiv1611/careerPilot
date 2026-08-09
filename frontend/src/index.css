@@ -82,60 +82,35 @@
 
 @layer base {
   :root {
-    /* Deep Space Dark Theme */
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+    --career-charcoal: #36454f;
+    --career-slate: #708090;
+    --career-line: #d3d3d3;
+    --career-canvas: #f4f5f5;
+    --career-white: #ffffff;
 
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
+    --background: 210 8% 96%;
+    --foreground: 203 19% 26%;
+    --card: 0 0% 100%;
+    --card-foreground: 203 19% 26%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 203 19% 26%;
+    --primary: 203 19% 26%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 8% 83%;
+    --secondary-foreground: 203 19% 26%;
+    --muted: 210 8% 93%;
+    --muted-foreground: 210 13% 50%;
+    --accent: 203 19% 26%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 83%;
+    --input: 0 0% 83%;
+    --ring: 210 13% 50%;
 
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-
-    --primary: 263.4 70% 50.4%;
-    /* Vibrant Purple */
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-
-    --accent: 263.4 70% 50.4%;
-    --accent-foreground: 0 0% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-
-    --radius: 0.75rem;
+    --radius: 0.5rem;
   }
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 263.4 70% 50.4%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 263.4 70% 50.4%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-  }
 }
 
 @layer base {
@@ -145,26 +120,57 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', sans-serif;
-    /* Ensure you have a nice font loaded */
-    background-image:
-      radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 1) 0, transparent 50%),
-      radial-gradient(at 50% 0%, hsla(225, 39%, 30%, 1) 0, transparent 50%),
-      radial-gradient(at 100% 0%, hsla(339, 49%, 30%, 1) 0, transparent 50%);
-    background-attachment: fixed;
+    font-family: "DejaVu Sans", "Segoe UI", Arial, ui-sans-serif, system-ui, sans-serif;
+    background: var(--career-canvas);
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--career-slate);
+    outline-offset: 2px;
   }
 }
+.product-shell {
+  --background: 210 8% 96%;
+  --foreground: 203 19% 26%;
+  --card: 0 0% 100%;
+  --card-foreground: 203 19% 26%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 203 19% 26%;
+  --primary: 203 19% 26%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 8% 83%;
+  --secondary-foreground: 203 19% 26%;
+  --muted: 210 8% 93%;
+  --muted-foreground: 210 13% 50%;
+  --accent: 203 19% 26%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 48%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 83%;
+  --input: 0 0% 83%;
+  --ring: 210 13% 50%;
+}
 
-@layer utilities {
-  .glass-panel {
-    @apply bg-white/5 backdrop-blur-lg border border-white/10 shadow-xl;
-  }
+.product-shell ::selection {
+  background: var(--career-line);
+  color: var(--career-charcoal);
+}
 
-  .glass-button {
-    @apply bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 transition-all duration-300;
-  }
-
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

@@ -1,8 +1,6 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text
+
+from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.sql import func
-from sqlalchemy import Column, Integer, String, DateTime, Text
-from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship # Added this import
 from .database import Base
 
 class User(Base):
@@ -13,5 +11,3 @@ class User(Base):
     full_name = Column(String, nullable=True)
     hashed_password = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
-    roadmaps = relationship("Roadmap", back_populates="user")

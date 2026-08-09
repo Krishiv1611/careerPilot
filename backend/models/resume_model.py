@@ -21,9 +21,13 @@ class Resume(Base):
     ats_report = Column(Text, nullable=True)
 
     resume_category = Column(String, nullable=True)
+    career_track_suggestions = Column(JSON, nullable=False, default=list)
 
     experience = Column(Text, nullable=True)
     education = Column(Text, nullable=True)
+    original_filename = Column(String, nullable=True)
+    file_type = Column(String, nullable=False, default="pdf")
+    stored_filename = Column(String, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 

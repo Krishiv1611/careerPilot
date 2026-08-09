@@ -1,111 +1,102 @@
-# backend/routers/job_router.py
-
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from uuid import uuid4
 
 from models.database import get_db
+from models.application_model import Application
 from models.job_model import Job
-from models.schemas import JobCreateModel, JobResponseModel
-from services.job_ingestor import JobIngestor
+from models.user_job_model import UserJob
+from models.schemas import JobResponseModel
+from models.user_model import User
+from utils.auth import get_current_user
+from services.user_job_service import find_user_job, set_user_job_state, should_show_user_job
+
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
 
-@router.post("/add", response_model=JobResponseModel)
-def add_job(job: JobCreateModel, db: Session = Depends(get_db)):
-    job_id = str(uuid4())
-
-    record = Job(
-        id=job_id,
-        title=job.title,
-        company=job.company,
-        location=job.location,
-        employment_type=job.employment_type,
-        experience_level=job.experience_level,
-        skills=job.skills,
-        description=job.description,
-        salary_range=job.salary_range,
-        url=job.url,
-        posted_date=job.posted_date,
-    )
-
-    db.add(record)
-    db.commit()
-    db.refresh(record)
-    
-    # Index job in vector store for semantic search
-    if job.description:
-        try:
-            ingestor = JobIngestor()
-            ingestor.ingest_job(job_id=job_id, job_description=job.description)
-            print(f"[JobRouter] Successfully indexed job {job_id} in vector store")
-        except Exception as e:
-            print(f"[JobRouter] Warning: Failed to index job in vector store: {e}")
-            # Don't fail the request if vector indexing fails
-    
-    return record
-
-
 @router.get("/all", response_model=list[JobResponseModel])
-def get_all_jobs(db: Session = Depends(get_db)):
-    return db.query(Job).all()
+def get_all_jobs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = db.query(Job, UserJob).join(
+        UserJob,
+        UserJob.job_id == Job.id,
+    ).filter(
+        UserJob.user_id == current_user.id,
+    ).order_by(Job.fetched_at.desc().nullslast()).all()
+    return [
+        _job_response(job, user_job.state)
+        for job, user_job in rows
+        if should_show_user_job(user_job.state, job.fetched_at)
+    ]
+
+
+@router.post("/{job_id}/save", response_model=JobResponseModel)
+def save_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job, _ = _get_user_job(db, job_id, current_user.id)
+    user_job = set_user_job_state(db, current_user.id, job.id, "saved")
+    db.commit()
+    return _job_response(job, user_job.state)
+
+
+@router.post("/{job_id}/dismiss", response_model=JobResponseModel)
+def dismiss_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job, _ = _get_user_job(db, job_id, current_user.id)
+    tracked_application = db.query(Application).filter(
+        Application.user_id == current_user.id,
+        Application.job_id == job.id,
+    ).first()
+    if tracked_application:
+        raise HTTPException(
+            status_code=409,
+            detail="Remove the tracked application before dismissing this job.",
+        )
+    user_job = set_user_job_state(db, current_user.id, job.id, "dismissed")
+    db.commit()
+    return _job_response(job, user_job.state)
 
 
 @router.get("/{job_id}", response_model=JobResponseModel)
-def get_job(job_id: str, db: Session = Depends(get_db)):
-    job = db.query(Job).filter(Job.id == job_id).first()
-
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found.")
-
-    return job
-
-
+def get_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job, user_job = _get_user_job(db, job_id, current_user.id)
+    return _job_response(job, user_job.state)
 
 
+def _get_user_job(db, job_id, user_id):
+    row = find_user_job(db, user_id, job_id, include_dismissed=True)
+    if not row:
+        raise HTTPException(status_code=404, detail="Job not found in your workspace.")
+    return row
 
-@router.post("/reindex-all")
-def reindex_all_jobs(db: Session = Depends(get_db)):
-    """
-    Re-index all existing jobs in the vector store.
-    Useful when jobs were added before vector indexing was implemented.
-    """
-    jobs = db.query(Job).all()
-    
-    if not jobs:
-        return {"message": "No jobs found to index", "indexed_count": 0}
-    
-    ingestor = JobIngestor()
-    indexed_count = 0
-    failed_count = 0
-    
-    for job in jobs:
-        if job.description:
-            try:
-                ingestor.ingest_job(job_id=job.id, job_description=job.description)
-                indexed_count += 1
-                print(f"[JobRouter] Re-indexed job {job.id}: {job.title}")
-            except Exception as e:
-                failed_count += 1
-                print(f"[JobRouter] Failed to re-index job {job.id}: {e}")
-    
+
+def _job_response(job, user_state):
     return {
-        "message": f"Re-indexing complete",
-        "total_jobs": len(jobs),
-        "indexed_count": indexed_count,
-        "failed_count": failed_count
+        "id": job.id,
+        "title": job.title,
+        "company": job.company,
+        "location": job.location,
+        "employment_type": job.employment_type,
+        "experience_level": job.experience_level,
+        "skills": job.skills or [],
+        "description": job.description,
+        "salary_range": job.salary_range,
+        "url": job.url,
+        "posted_date": job.posted_date,
+        "source": job.source,
+        "verification_status": job.verification_status,
+        "fetched_at": job.fetched_at,
+        "user_state": user_state,
     }
-
-
-@router.delete("/{job_id}")
-def delete_job(job_id: str, db: Session = Depends(get_db)):
-    job = db.query(Job).filter(Job.id == job_id).first()
-
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found.")
-
-    db.delete(job)
-    db.commit()
-
-    return {"message": "Job deleted successfully"}

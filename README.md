@@ -1,315 +1,143 @@
-# 🚀 CareerPilot AI: The Autonomous Career Orchestration Platform
+# CareerPilot
 
-[![Live Demo](https://img.shields.io/badge/Live_Demo-Visit_Site-blue?style=for-the-badge&logo=vercel)](https://career-pilot-frontend.vercel.app)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/python-3.10+-blue.svg?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)](https://react.dev/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+CareerPilot is a student-first application workspace for students and recent graduates applying for jobs in India. It connects focused job discovery, explainable resume matching, evidence-aware resume tailoring, GitHub project evidence, application tracking, and a focused growth plan.
 
----
+## What students can do
 
-**CareerPilot AI** is a comprehensive, **AI-powered** career acceleration ecosystem designed to autonomously navigate the complexities of the modern job market. By fusing **Generative AI**, **Agentic Workflows**, and **Deep Semantic Search**, it transforms the passive process of job hunting into a proactive, data-driven strategy.
+- Search for fresher and entry-level roles through SerpAPI and Tavily, with provider and freshness labels.
+- Remove articles, duplicate results, and senior-only roles before they reach the job feed.
+- Compare a saved resume with a job description using visible skill evidence.
+- Create truth-guarded resume versions without inventing technologies or metrics.
+- Download a tailored DOCX using the uploaded DOCX structure, or a clean PDF export.
+- Connect selected repositories through a GitHub App and the official GitHub MCP server.
+- Confirm a personal contribution before an existing GitHub project becomes a reviewable resume proposal.
+- Track applications only after explicit confirmation, with status history and next actions.
+- Receive one prioritized Today action from real deadlines, follow-ups, drafts, and workspace state.
+- Persist up to three growth priorities from recurring gaps and complete them with evidence.
+- Use checksum-verified ML artifacts for optional, editable career-track suggestions.
 
-This platform does not just "search" for jobs; it **understands** your career trajectory, **aligns** opportunities with your unique skill vector, and **engineers** your application materials to maximize conversion rates.
-
----
-
-## 🌟 Key Features
-
-### 🧠 Cognitive Core & AI Capabilities
-
-CareerPilot AI is built upon a sophisticated **Multi-Agent System (MAS)** architecture, where specialized AI agents collaborate to execute complex tasks:
-
-#### 1. Cognitive Resume Parsing Agent
-*   **Function**: Ingests unstructured PDF resumes and converts them into structured, semantic data.
-*   **AI Tech**: Utilizes **Natural Language Processing (NLP)** to identify and categorize skills, experience, and educational background with high fidelity.
-*   **Outcome**: A digital twin of your professional profile ready for deep analysis.
-
-#### 2. Predictive ATS Scoring Engine
-*   **Function**: Simulates corporate Applicant Tracking Systems (ATS) to audit your resume.
-*   **AI Tech**: Deploys **Generative AI** to evaluate formatting, keyword density, and structural integrity against industry standards.
-*   **Outcome**: A granular score (0-100) and a strategic feedback report to immunize your resume against automated rejection.
-
-#### 3. Instant Resume Categorization Engine
-*   **Function**: Automatically segments your profile into professional domains.
-*   **AI Tech**: Deploys a **Trained Machine Learning Classifier** (TF-IDF + Random Forest) to predict your primary role from 25+ career categories (e.g., Data Science, DevOps, Java Development).
-*   **Outcome**: Ensures your profile is matched against the correct job market segment.
-
-#### 4. Semantic Job Discovery Agent
-*   **Function**: Scours internal databases and the live web for high-potential opportunities.
-*   **AI Tech**: Leverages **Neural Search** and **Vector Embeddings** to go beyond keyword matching, finding jobs that semantically align with your core competencies.
-*   **Integration**: Seamlessly connects with **SerpAPI** for real-time access to global job listings (Google Jobs).
-
-#### 5. Intelligent Query Manager
-*   **Function**: Intercepts and optimizes user intent before searching.
-*   **AI Tech**: Uses **Chain-of-Thought (CoT)** reasoning to transform vague inputs into precise boolean search strings, ensuring high-relevance results.
-*   **Outcome**: Drastically reduces noise in job search results.
-
-#### 6. Deep Fit Analysis Agent
-*   **Function**: The "Brain" of the operation. It reads job descriptions like a hiring manager. Supports both auto-matched jobs and **Manual Analysis** (pasting your own JD).
-*   **AI Tech**: Uses **Google Gemini 2.5 Flash** to perform a multi-dimensional gap analysis between your profile and the target role.
-*   **Outcome**: A "Fit Score" and a detailed diagnostic report highlighting strengths, weaknesses, and critical missing skills.
-
-#### 7. Generative Content Architect
-*   **Function**: Autonomously drafts hyper-personalized application assets.
-*   **AI Tech**:
-    *   **Resume Tailoring**: Reconstructs your resume to emphasize the specific skills and experiences demanded by the target job.
-    *   **Cover Letter Synthesis**: Composes persuasive, context-aware cover letters that weave your narrative into the company's mission.
-
-#### 8. Personalized Career Roadmap Agent
-*   **Function**: Generates a bespoke learning and preparation strategy for a specific target role.
-*   **AI Tech**: Analyzes the gap between your current profile and the job requirements to create a step-by-step action plan.
-*   **Outcome**: A structured roadmap containing milestones, resources, and timelines to bridge skill gaps and land the job.
-
----
-
-## 🏗️ Technical Architecture
-
-The system is engineered as a robust, scalable, and containerized full-stack application.
-
-### Backend: The Neural Control Plane
-*   **Framework**: **FastAPI** (Python) for high-performance, asynchronous API handling.
-*   **Orchestration**: **LangGraph** manages the stateful, cyclic graphs of the agentic workflows.
-*   **Intelligence**: **Google Gemini 2.5 Flash** (via `langchain-google-genai`) provides the reasoning and generative capabilities.
-*   **Memory**: **PostgreSQL** (via **SQLAlchemy**) ensures ACID-compliant persistence of user data, resumes, and job history.
-*   **Vector Engine**: **ChromaDB** powers the semantic retrieval system, storing embeddings of resumes and job descriptions for similarity search.
-*   **Security**: **OAuth2** with **JWT** (JSON Web Tokens) and **Argon2** password hashing.
-
-### Frontend: The Command Center
-*   **Framework**: **React.js 19** (Vite) delivers a lightning-fast, reactive user interface.
-*   **Design System**: **Shadcn/UI** and **Tailwind CSS 4** provide a premium, accessible, and responsive aesthetic.
-*   **Routing**: **React Router DOM 7** for seamless navigation.
-*   **State Management**: React Hooks manage the complex state of real-time AI interactions.
-
-### Infrastructure
-*   **Containerization**: **Docker** encapsulates the entire stack, ensuring consistency across development and production environments.
-*   **Orchestration**: **Docker Compose** manages the multi-container lifecycle.
-
----
-
-## 📂 Project Structure
+## Product workflow
 
 ```text
-careerPilot/
-├── backend/                        # Python FastAPI Backend
-│   ├── agents/                     # The "Brain" - AI Agent Definitions
-│   │   ├── graph.py                # LangGraph workflow definition
-│   │   ├── job_search_agent.py     # Internal DB search logic
-│   │   ├── fit_score_agent.py      # Gemini-powered fit analysis
-│   │   ├── roadmap_agent.py        # Roadmap generation logic
-│   │   └── ... (other agents)
-│   ├── models/                     # Data Layer
-│   │   ├── database.py             # DB connection & session handling
-│   │   ├── schemas.py              # Pydantic models for API validation
-│   │   ├── user_model.py           # SQLAlchemy ORM models
-│   │   └── roadmap_model.py        # Roadmap data models
-│   ├── routers/                    # API Interface
-│   │   ├── careerpilot_router.py   # Main endpoint for AI workflows
-│   │   ├── resume_router.py        # Resume management endpoints
-│   │   ├── roadmap_router.py       # Roadmap endpoints
-│   │   └── auth_router.py          # Authentication endpoints
-│   ├── services/                   # Business Logic & Utilities
-│   │   ├── ats_service.py          # ATS scoring logic
-│   │   ├── embedding.py            # Vector embedding service
-│   │   └── pdf_reader.py           # PDF extraction utility
-│   ├── data/                       # Local storage (Git-ignored)
-│   │   ├── resumes/                # Uploaded PDF files
-│   │   └── vectorstore/            # ChromaDB persistence
-│   ├── main.py                     # Application entry point
-│   ├── requirements.txt            # Python dependencies
-│   └── Dockerfile                  # Backend container definition
-│
-├── frontend/                       # React Frontend
-│   ├── src/
-│   │   ├── components/             # UI Building Blocks
-│   │   │   ├── layout/             # Navbar, Layout wrappers
-│   │   │   ├── ui/                 # Shadcn/UI components
-│   │   │   └── settings/           # Configuration modals
-│   │   ├── pages/                  # Main Views
-│   │   │   ├── CareerPilot.jsx     # The AI Dashboard
-│   │   │   ├── UploadResume.jsx    # Resume ingestion interface
-│   │   │   └── Roadmap.jsx         # Roadmap visualization
-│   │   ├── services/               # API Integration
-│   │   │   └── api.js              # Axios configuration
-│   │   ├── App.jsx                 # Main Router
-│   │   └── main.jsx                # Entry point
-│   ├── public/                     # Static assets
-│   ├── index.html                  # HTML template
-│   ├── package.json                # Node.js dependencies
-│   ├── tailwind.config.js          # Styling configuration
-│   └── Dockerfile                  # Frontend container definition
-│
-├── docker-compose.yml              # Multi-container orchestration config
-├── .env                            # Environment variables (API Keys)
-└── README.md                       # This documentation
+Today
+  -> Find relevant provider job pages
+  -> Check resume evidence
+  -> Tailor and approve a resume version
+  -> Apply externally and confirm tracking
+  -> Follow next actions and recurring skill gaps
 ```
 
----
+The application navigation contains five student destinations: **Today**, **Find Jobs**, **Resume & Profile**, **Applications**, and **Growth**.
 
-## 🚀 Installation & Deployment Guide
+## Multi-agent architecture
 
-### Prerequisites
-*   **Docker Desktop** (Running)
-*   **Git** (For version control)
-*   **PostgreSQL Database**: You need a running PostgreSQL instance (local or cloud).
-*   **API Keys**:
-    *   **Google Gemini API Key**: Essential for all AI features. [Get it here](https://aistudio.google.com/).
-    *   **SerpAPI Key**: Optional, for live Google Jobs search. [Get it here](https://serpapi.com/).
+CareerPilot uses a deliberately small LangGraph workflow:
 
-### ⚙️ Configuration (.env)
+- The **Supervisor** routes each supported task and rejects unknown work.
+- The **Job Discovery Agent** coordinates job providers, validation, fresher filtering, and deduplication.
+- The **Resume & Evidence Agent** handles resume/JD analysis, truth-guarded prompt edits, and GitHub project evidence ranking.
 
-Create a `.env` file in the root directory with the following variables:
+Authentication, persistence, application state transitions, exports, and safety checks remain ordinary deterministic services. The project does not use an Interview Agent or the previous overlapping agent swarm.
+
+## Technology
+
+- React 19, Vite, Tailwind CSS, and React Router
+- FastAPI, SQLAlchemy, PostgreSQL, and Alembic
+- LangGraph for focused agent orchestration
+- SerpAPI and Tavily for job discovery
+- GitHub App installation tokens and the official GitHub MCP server
+- HttpOnly cookie sessions with Argon2 password hashing
+
+## Configuration
+
+Copy `.env.example` to `.env` and replace the example values. Secrets stay on the backend and are never entered in the browser.
+
+Required:
 
 ```env
-# Database Configuration (Required)
-DATABASE_URL=postgresql://user:password@host:port/dbname
-
-# Security (Required)
-SECRET_KEY=your_super_secret_random_string
-
-# CORS Configuration (Optional)
-CORS_ORIGINS=http://localhost:5173,http://localhost:3000
-
-# AI Keys (Can also be set via UI)
-GOOGLE_API_KEY=your_gemini_key
-SERPAPI_API_KEY=your_serpapi_key
-TAVILY_API_KEY=your_tavily_key
+DATABASE_URL=postgresql://careerpilot:careerpilot@localhost:5432/careerpilot
+SECRET_KEY=replace-with-a-long-random-secret
 ```
 
-### Option 1: Docker Deployment (Recommended)
+For a production HTTPS deployment, also use `COOKIE_SECURE=true` and choose `COOKIE_SAMESITE` for the final frontend/API domain layout.
 
-1.  **Clone the Repository**
-    ```bash
-    git clone https://github.com/Krishiv1611/careerPilot.git
-    cd careerPilot
-    ```
+Job discovery:
 
-2.  **Launch with Docker Compose**
-    ```bash
-    docker-compose up --build -d
-    ```
+```env
+SERPAPI_API_KEY=
+TAVILY_API_KEY=
+```
 
-3.  **Access the Platform**
-    *   **Frontend UI**: [http://localhost:3000](http://localhost:3000)
-    *   **Backend API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+GitHub evidence is optional. It requires a read-only GitHub App installation:
 
-### Option 2: Local Development (Manual)
+```env
+GITHUB_APP_ID=
+GITHUB_APP_SLUG=
+GITHUB_APP_PRIVATE_KEY=
+GITHUB_MCP_URL=https://api.githubcopilot.com/mcp/
+```
 
-**Backend:**
-1.  Navigate to `backend/`.
-2.  Create a virtual environment: `python -m venv venv`
-3.  Activate it: `source venv/bin/activate` (or `venv\Scripts\activate` on Windows).
-4.  Install dependencies: `pip install -r requirements.txt`
-5.  Run the server: `uvicorn main:app --reload`
+## Local development
 
-**Frontend:**
-1.  Navigate to `frontend/`.
-2.  Install dependencies: `npm install`
-3.  Start the dev server: `npm run dev`
+Prerequisites: Python 3.12 or 3.13, Node.js 20+, and PostgreSQL.
 
----
+To start the complete local stack with a persistent PostgreSQL volume:
 
-## 📡 API Documentation
+```powershell
+Copy-Item .env.example .env
+docker compose up --build
+```
 
-The backend exposes a comprehensive REST API documented via Swagger UI at `/docs`.
+Change `SECRET_KEY` and `POSTGRES_PASSWORD` before using the stack beyond local development.
 
-### Key Endpoints
+Backend, from the repository root:
 
-#### 🔐 Authentication
-*   `POST /auth/register`: Create a new user account.
-*   `POST /auth/login`: Authenticate and receive a JWT access token.
+```powershell
+uv sync --locked
+uv run alembic upgrade head
+uv run uvicorn main:app --app-dir backend --reload
+```
 
-#### 📄 Resumes
-*   `POST /resume/upload`: Upload a PDF resume. Triggers parsing and initial analysis.
-*   `GET /resume/all`: Retrieve all resumes associated with the current user.
-*   `GET /resume/{id}`: Get detailed data for a specific resume.
-*   `POST /resume/download-pdf`: Generate and download a PDF version of the improved resume.
+Commit `uv.lock` with dependency changes. `backend/requirements.txt` remains the
+runtime input for the backend Docker image.
 
-#### 💼 Jobs
-*   `POST /jobs/add`: Manually add a job to the database.
-*   `GET /jobs/all`: List all available jobs.
-*   `POST /jobs/reindex-all`: Re-index all jobs into the vector store for semantic search.
+Frontend:
 
-#### 🗺️ Roadmap
-*   `POST /roadmap/create`: Generate a personalized career roadmap for a specific job.
-*   `GET /roadmap/{job_id}`: Retrieve an existing roadmap for a job.
+```powershell
+cd frontend
+npm ci
+npm run dev
+```
 
-#### 🧠 CareerPilot (AI Agents)
-*   `POST /careerpilot/analyze`: **The Core Endpoint**. Triggers the multi-agent workflow:
-    *   **Input**: Resume ID, Job ID (optional), Search Query (optional).
-    *   **Process**: Search -> Match -> Gap Analysis -> Tailoring.
-    *   **Output**: Fit Score, Missing Skills, Improved Resume, Cover Letter.
-*   `POST /manual-analysis/analyze`: **Direct Analysis**.
-    *   **Input**: Manual JD Text + Resume ID.
-    *   **Process**: Skips search, directly analyzes the provided text against the resume.
+The frontend uses `http://127.0.0.1:8000` by default. Set `VITE_BACKEND_URL` before building when the API is hosted elsewhere.
 
----
+## Verification
 
-## 📖 User Manual: Navigating the AI Workflow
+Run from the repository root:
 
-### Phase 1: Configuration
-1.  Open the application (or visit the [Live Demo](https://career-pilot-frontend.vercel.app)).
-2.  Click the **"Configure Keys"** button in the top-right corner.
-3.  Input your **Google Gemini API Key**.
-4.  (Optional) Input your **SerpAPI Key** to enable live web searching.
-5.  Save. Your keys are encrypted and stored locally in your browser.
+```powershell
+uv lock --check
+uv run python -m unittest discover -s backend\tests -p "test_*.py" -v
+uv run python -m unittest discover -s tests -p "test_*.py" -v
+uv run python -m compileall -q backend
+cd frontend
+npm test
+npm run lint
+npm run build
+```
 
-### Phase 2: Ingestion & Audit
-1.  Go to **"Upload Resume"**.
-2.  Drag and drop your PDF resume.
-3.  **Watch the AI work**: It will instantly parse your document, extract your skill DNA, and run an ATS audit.
-4.  Review the **ATS Score** and feedback.
+## Current safety boundaries
 
-### Phase 3: Strategic Discovery
-1.  Navigate to **"CareerPilot AI"** (Dashboard).
-2.  Select your uploaded resume from the dropdown.
-3.  **Auto-Match**: Leave the search bar empty and click "Find Jobs". The AI will infer your ideal roles based on your extracted skills.
-4.  **Targeted Search**: Enter a specific role (e.g., "Senior React Developer") to narrow the scope.
+- Provider credentials and session tokens are not stored in browser storage.
+- GitHub access is installation-scoped, short-lived, repository-restricted, and revocable.
+- A GitHub match cannot enter a resume until the student confirms their contribution.
+- Resume edits are checked against evidence and remain a draft until each change is accepted or rejected.
+- A match analysis does not silently create an application.
+- Jobs are scoped to the authenticated student and marked as provider candidates unless live verification actually occurred.
+- External provider failures are returned as partial-search warnings instead of fake results.
 
-### Phase 4: Deep Analysis & Execution
-1.  Browse the intelligent job cards.
-2.  Click **"Analyze Match"** on a role that interests you.
-3.  The **Fit Analysis Agent** will perform a deep dive:
-    *   **Fit Score**: A percentage indicating your alignment.
-    *   **Gap Analysis**: Identifies critical missing skills.
-    *   **Tailored Resume**: Generates a new version of your resume optimized for this specific job.
-    *   **Cover Letter**: Drafts a compelling narrative for your application.
-    *   **Roadmap**: View a step-by-step plan to acquire the missing skills.
-4.  Use these AI-generated assets to apply with confidence.
+## ML advisory feature
 
-### Phase 5: Manual Analysis
-1.  Have a specific job description from another site?
-2.  Go to the **"Analyze Match"** section.
-3.  Paste the **Job Description** text directly.
-4.  The AI will run the full suite of analysis (Fit Score, Resume Tailoring) on your pasted text.
+The resume-category notebook remains research-quality because its reported accuracy is inflated by duplicate leakage. CareerPilot uses the checked-in artifacts only for optional career-track suggestions: the files are checksum-verified before loading, failures never block resume upload, and predictions do not restrict eligibility or job search. See [the analysis notes](backend/analysis/README.md).
 
----
-
-## 🔧 Troubleshooting
-
-*   **"Connection Refused"**: Ensure the backend container is running. Check logs with `docker logs careerpilot-backend`.
-*   **"Database Error"**: Ensure your `DATABASE_URL` is correct and the PostgreSQL server is running.
-*   **"Google API Key Missing"**: The AI agents cannot function without fuel. Configure your key in the settings modal.
-*   **"Search Query Missing"**: This has been resolved in the latest patch by optimizing the graph execution order.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-1.  Fork the repository.
-2.  Create a new branch (`git checkout -b feature/AmazingFeature`).
-3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4.  Push to the branch (`git push origin feature/AmazingFeature`).
-5.  Open a Pull Request.
-
----
-
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
----
-
-*Powered by Advanced Agentic AI. Engineered for Career Success.*
+See [the product design](docs/plans/2026-08-09-careerpilot-student-application-os-design.md) and [implementation plan](docs/plans/2026-08-09-careerpilot-student-application-os-implementation.md) for the approved scope and delivery sequence.

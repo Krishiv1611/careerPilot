@@ -17,10 +17,13 @@ class TextCleaner:
 
     @staticmethod
     def remove_multiple_spaces(text: str) -> str:
-        """Convert multiple spaces/newlines into clean spacing."""
-        text = re.sub(r'\n+', '\n', text)          # remove multiple newlines
-        text = re.sub(r'\s+', ' ', text)           # remove multiple spaces
-        return text.strip()
+        """Clean repeated spaces while preserving resume line structure."""
+        lines = []
+        for line in text.splitlines():
+            clean_line = re.sub(r'[ \t]+', ' ', line).strip()
+            if clean_line:
+                lines.append(clean_line)
+        return "\n".join(lines)
 
     @staticmethod
     def remove_non_ascii(text: str) -> str:
@@ -34,7 +37,7 @@ class TextCleaner:
         - lowercase optional (disabled because resumes need case)
         - unicode normalization
         - remove non-ascii
-        - collapse whitespace
+        - collapse repeated spaces without removing section breaks
         - trim spaces
         """
         if not text:

@@ -1,37 +1,59 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { lazy, Suspense } from 'react';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
+
 import RequireAuth from './components/auth/RequireAuth';
 import Layout from './components/layout/Layout';
-import LandingPage from './pages/LandingPage';
-import Home from './pages/Home';
-import UploadResume from './pages/UploadResume';
-import SearchJobs from './pages/SearchJobs';
-import AddJob from './pages/AddJob';
-import Applications from './pages/Applications';
-import CareerPilot from './pages/CareerPilot';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import AnalyzeJD from './pages/AnalyzeJD';
+import { AuthProvider } from './context/AuthContext';
+
+
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const Login = lazy(() => import('./pages/Login'));
+const Signup = lazy(() => import('./pages/Signup'));
+const Home = lazy(() => import('./pages/Home'));
+const SearchJobs = lazy(() => import('./pages/SearchJobs'));
+const UploadResume = lazy(() => import('./pages/UploadResume'));
+const ResumeStudio = lazy(() => import('./pages/ResumeStudio'));
+const Applications = lazy(() => import('./pages/Applications'));
+const Growth = lazy(() => import('./pages/Growth'));
+const Settings = lazy(() => import('./pages/Settings'));
+
+
+const PageFallback = () => (
+  <div className="grid min-h-[45vh] place-items-center" role="status" aria-label="Loading page">
+    <div className="h-7 w-7 animate-spin rounded-full border-2 border-slate-300 border-t-[#36454f]" />
+  </div>
+);
+
+
+const Protected = ({ children }) => <RequireAuth>{children}</RequireAuth>;
+
 
 function App() {
   return (
     <Router>
       <AuthProvider>
         <Layout>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/" element={<LandingPage />} />
+          <Suspense fallback={<PageFallback />}>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
 
-            {/* Protected Routes */}
-            <Route path="/dashboard" element={<RequireAuth><Home /></RequireAuth>} />
-            <Route path="/upload" element={<RequireAuth><UploadResume /></RequireAuth>} />
-            <Route path="/jobs" element={<RequireAuth><SearchJobs /></RequireAuth>} />
-            <Route path="/add-job" element={<RequireAuth><AddJob /></RequireAuth>} />
-            <Route path="/analyze-jd" element={<RequireAuth><AnalyzeJD /></RequireAuth>} />
-            <Route path="/applications" element={<RequireAuth><Applications /></RequireAuth>} />
-            <Route path="/careerpilot" element={<RequireAuth><CareerPilot /></RequireAuth>} />
-          </Routes>
+              <Route path="/dashboard" element={<Protected><Home /></Protected>} />
+              <Route path="/jobs" element={<Protected><SearchJobs /></Protected>} />
+              <Route path="/profile" element={<Protected><UploadResume /></Protected>} />
+              <Route path="/profile/tailor" element={<Protected><ResumeStudio /></Protected>} />
+              <Route path="/applications" element={<Protected><Applications /></Protected>} />
+              <Route path="/growth" element={<Protected><Growth /></Protected>} />
+              <Route path="/settings" element={<Protected><Settings /></Protected>} />
+
+              <Route path="/upload" element={<Navigate replace to="/profile" />} />
+              <Route path="/add-job" element={<Navigate replace to="/jobs" />} />
+              <Route path="/analyze-jd" element={<Navigate replace to="/profile" />} />
+              <Route path="/careerpilot" element={<Navigate replace to="/jobs" />} />
+              <Route path="*" element={<Navigate replace to="/" />} />
+            </Routes>
+          </Suspense>
         </Layout>
       </AuthProvider>
     </Router>

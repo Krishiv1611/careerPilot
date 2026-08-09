@@ -4,29 +4,15 @@ const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
 
 const api = axios.create({
     baseURL: API_URL,
+    withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
-// Add a request interceptor to include the token
-api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => Promise.reject(error)
-);
-
-export const uploadResume = async (file, apiKey = null) => {
+export const uploadResume = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
-    if (apiKey) {
-        formData.append('google_api_key', apiKey);
-    }
     const response = await api.post('/resume/upload', formData, {
         headers: {
             'Content-Type': 'multipart/form-data',
@@ -45,24 +31,23 @@ export const deleteResume = async (resumeId) => {
     return response.data;
 };
 
-export const addJob = async (jobData) => {
-    const response = await api.post('/jobs/add', jobData);
-    return response.data;
-};
-
 export const getAllJobs = async () => {
     const response = await api.get('/jobs/all');
     return response.data;
 };
 
-export const deleteJob = async (jobId) => {
-    const response = await api.delete(`/jobs/${jobId}`);
+export const saveJob = async (jobId) => {
+    const response = await api.post(`/jobs/${jobId}/save`);
     return response.data;
 };
 
-export const runCareerPilot = async (payload) => {
-    // Ensure payload includes new keys if they exist in the object passed
-    const response = await api.post('/careerpilot/analyze', payload);
+export const dismissJob = async (jobId) => {
+    const response = await api.post(`/jobs/${jobId}/dismiss`);
+    return response.data;
+};
+
+export const discoverJobs = async (search) => {
+    const response = await api.post('/discovery/search', search);
     return response.data;
 };
 
@@ -71,41 +56,124 @@ export const getAllApplications = async () => {
     return response.data;
 };
 
+export const getToday = async () => {
+    const response = await api.get('/today');
+    return response.data;
+};
+
+export const createApplication = async (jobId, resumeId = null) => {
+    const response = await api.post('/applications', {
+        job_id: jobId,
+        resume_id: resumeId,
+        confirmed: true,
+    });
+    return response.data;
+};
+
+export const updateApplicationStatus = async (applicationId, update) => {
+    const response = await api.patch(`/applications/${applicationId}/status`, update);
+    return response.data;
+};
+
+export const updateApplicationDetails = async (applicationId, update) => {
+    const response = await api.patch(`/applications/${applicationId}`, update);
+    return response.data;
+};
+
 export const deleteApplication = async (appId) => {
     const response = await api.delete(`/applications/${appId}`);
     return response.data;
 };
 
-export const createRoadmap = async (jobId, resumeId, googleApiKey) => {
-    const response = await api.post('/roadmap/create', {
+export const analyzeResumeForJob = async (payload) => {
+    const response = await api.post('/resume-studio/analyze', payload);
+    return response.data;
+};
+
+export const getResumeVersions = async (resumeId) => {
+    const response = await api.get('/resume-studio/versions', {
+        params: resumeId ? { resume_id: resumeId } : {},
+    });
+    return response.data;
+};
+
+export const promptResumeVersion = async (versionId, instruction) => {
+    const response = await api.post(`/resume-studio/versions/${versionId}/prompt`, {
+        instruction,
+    });
+    return response.data;
+};
+
+export const reviewResumeVersion = async (versionId, payload) => {
+    const response = await api.post(`/resume-studio/versions/${versionId}/review`, payload);
+    return response.data;
+};
+
+export const downloadResumeVersion = async (versionId) => {
+    const response = await api.get(`/resume-studio/versions/${versionId}/download`, {
+        responseType: 'blob',
+    });
+    return response.data;
+};
+
+export const getGitHubStatus = async () => {
+    const response = await api.get('/github/status');
+    return response.data;
+};
+
+export const connectGitHub = async () => {
+    const response = await api.post('/github/connect');
+    return response.data;
+};
+
+export const getGitHubRepositories = async () => {
+    const response = await api.get('/github/repositories');
+    return response.data;
+};
+
+export const findGitHubEvidence = async (resumeVersionId, repositories) => {
+    const response = await api.post('/github/evidence', {
+        resume_version_id: resumeVersionId,
+        repositories,
+    });
+    return response.data;
+};
+
+export const approveGitHubEvidence = async (evidenceId, payload) => {
+    const response = await api.post(`/github/evidence/${evidenceId}/approve`, payload);
+    return response.data;
+};
+
+export const disconnectGitHub = async () => {
+    const response = await api.delete('/github/connection');
+    return response.data;
+};
+
+export const getGrowthPlan = async () => {
+    const response = await api.get('/growth/plan');
+    return response.data;
+};
+
+export const completeGrowthPriority = async (priorityId, completion) => {
+    const response = await api.post(`/growth/priorities/${priorityId}/complete`, completion);
+    return response.data;
+};
+
+export const analyzeJobMatch = async (jobId, resumeId = null) => {
+    const response = await api.post('/matches/analyze', {
         job_id: jobId,
         resume_id: resumeId,
-        google_api_key: googleApiKey
     });
     return response.data;
 };
 
-export const getRoadmap = async (jobId) => {
-    try {
-        const response = await api.get(`/roadmap/${jobId}`);
-        return response.data;
-    } catch (error) {
-        if (error.response && error.response.status === 404) {
-            return null;
-        }
-        throw error;
-    }
-};
-
-export const analyzeManualJD = async (payload) => {
-    const response = await api.post('/manual-analysis/analyze', payload);
+export const getCandidateProfile = async () => {
+    const response = await api.get('/profile');
     return response.data;
 };
 
-export const downloadResumePDF = async (text) => {
-    const response = await api.post('/resume/download-pdf', { text }, {
-        responseType: 'blob', // Important for file download
-    });
+export const updateCandidateProfile = async (profile) => {
+    const response = await api.put('/profile', profile);
     return response.data;
 };
 

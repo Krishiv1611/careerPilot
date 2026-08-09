@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node --test src/app/api-errors.test.js src/app/career-track-suggestions.test.js src/app/github-evidence.test.js src/app/job-workspace.test.js src/app/navigation.test.js src/app/resume-proposals.test.js src/app/theme.test.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"

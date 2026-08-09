@@ -1,6 +1,6 @@
 # backend/models/job_model.py
 
-from sqlalchemy import Column, String, Text, Date, JSON
+from sqlalchemy import Column, String, Text, Date, DateTime, JSON
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -24,6 +24,8 @@ class Job(Base):
     url = Column(String, nullable=True)
     posted_date = Column(Date, nullable=True)
     source = Column(String, nullable=True) # e.g. "Google Jobs", "Tavily", "Internal"
+    verification_status = Column(String, nullable=False, default="stored")
+    fetched_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationship (job → applications)
     applications = relationship("Application", back_populates="job")
