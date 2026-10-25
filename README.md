@@ -4,17 +4,18 @@ CareerPilot is a student-first application workspace for students and recent gra
 
 ## What students can do
 
-- Search for fresher and entry-level roles through SerpAPI and Tavily, with provider and freshness labels.
-- Remove articles, duplicate results, and senior-only roles before they reach the job feed.
-- Compare a saved resume with a job description using visible skill evidence.
-- Create truth-guarded resume versions without inventing technologies or metrics.
-- Download a tailored DOCX using the uploaded DOCX structure, or a clean PDF export.
-- Connect selected repositories through a GitHub App and the official GitHub MCP server.
-- Confirm a personal contribution before an existing GitHub project becomes a reviewable resume proposal.
-- Track applications only after explicit confirmation, with status history and next actions.
-- Receive one prioritized Today action from real deadlines, follow-ups, drafts, and workspace state.
-- Persist up to three growth priorities from recurring gaps and complete them with evidence.
-- Use checksum-verified ML artifacts for optional, editable career-track suggestions.
+- **Strict Job Discovery & Anti-Spam**: Search for fresher and entry-level roles across SerpAPI and Tavily (with dual-key fallback `TAVILY_API_KEY` / `TAVILY_SEARCH_API_KEY`). Automatic negative keyword filtering eliminates courses, bootcamps, placement fees, pay-after-placement ISAs, and laptop deposit scams.
+- **Persistent Saved Jobs**: Save discovered jobs for later review in a persistent saved jobs workspace.
+- **Deep Requirement Matching**: Multiline bullet requirement parsing separates hard blockers (`missing_must_haves`) from preferred gaps, with smart heuristics ignoring company founding history.
+- **Truth-Guarded AI Tailoring**: Google Gemini AI and deterministic STAR bullet rewriting with strict truth-guarding that prevents hallucinated skills, tools, or quantitative metrics.
+- **ATS-Compliant PDF Resume Engine**: Single-column Harvard/Stanford layout built with ReportLab Platypus, featuring clean typography, horizontal rule dividers, and indented bullets.
+- **Platform Connectors Hub**:
+  - **LeetCode Connector**: Public GraphQL integration fetching total/easy/medium/hard solved and global ranking with 1-click ATS bullet generation.
+  - **GitHub Public Connector**: Public repository, star count, and language aggregator.
+  - **LinkedIn Profile Import**: Extracts headline, education, and skills from exported profile text.
+- **Recruiter Outreach Kit**: 1-click generation of LinkedIn connection request notes strictly under 300 characters (with live character counter), formal cold emails, and 3-5 day follow-up notes.
+- **Interactive Applications Kanban Pipeline**: 6-stage Kanban board (`Saved`, `Preparing`, `Applied`, `Interview`, `Offer`, `Rejected`) with direct `Saved` $\to$ `Applied` transitions, reopening of withdrawn/rejected roles, and submitted resume download.
+- **Focused Growth Plan & Today Engine**: Prioritized daily actions from real deadlines, follow-ups, and recurring skill gaps.
 
 ## Product workflow
 
@@ -61,11 +62,18 @@ SECRET_KEY=replace-with-a-long-random-secret
 
 For a production HTTPS deployment, also use `COOKIE_SECURE=true` and choose `COOKIE_SAMESITE` for the final frontend/API domain layout.
 
-Job discovery:
+AI resume tailoring (optional Google Gemini key):
+
+```env
+GOOGLE_API_KEY=
+```
+
+Job discovery (dual-key Tavily fallback supported):
 
 ```env
 SERPAPI_API_KEY=
 TAVILY_API_KEY=
+TAVILY_SEARCH_API_KEY=
 ```
 
 GitHub evidence is optional. It requires a read-only GitHub App installation:

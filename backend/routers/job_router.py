@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -32,6 +34,27 @@ def get_all_jobs(
     ]
 
 
+@router.get("/saved", response_model=list[JobResponseModel])
+def get_saved_jobs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = db.query(Job, UserJob).join(
+        UserJob,
+        UserJob.job_id == Job.id,
+    ).filter(
+        UserJob.user_id == current_user.id,
+        UserJob.state == "saved",
+    ).order_by(
+        UserJob.updated_at.desc().nullslast(),
+        Job.fetched_at.desc().nullslast(),
+    ).all()
+    return [
+        _job_response(job, user_job.state)
+        for job, user_job in rows
+    ]
+
+
 @router.post("/{job_id}/save", response_model=JobResponseModel)
 def save_job(
     job_id: str,
@@ -40,6 +63,19 @@ def save_job(
 ):
     job, _ = _get_user_job(db, job_id, current_user.id)
     user_job = set_user_job_state(db, current_user.id, job.id, "saved")
+    db.commit()
+    return _job_response(job, user_job.state)
+
+
+@router.post("/{job_id}/unsave", response_model=JobResponseModel)
+def unsave_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job, user_job = _get_user_job(db, job_id, current_user.id)
+    user_job.state = "discovered"
+    user_job.updated_at = datetime.now(timezone.utc)
     db.commit()
     return _job_response(job, user_job.state)
 
@@ -78,7 +114,11 @@ def get_job(
 def _get_user_job(db, job_id, user_id):
     row = find_user_job(db, user_id, job_id, include_dismissed=True)
     if not row:
-        raise HTTPException(status_code=404, detail="Job not found in your workspace.")
+        job = db.query(Job).filter(Job.id == job_id).first()
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found in your workspace.")
+        user_job = set_user_job_state(db, user_id, job.id, "discovered")
+        return job, user_job
     return row
 
 

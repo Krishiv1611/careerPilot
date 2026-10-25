@@ -16,20 +16,25 @@ TRUSTED_JOB_DOMAINS = [
     "jobs.lever.co",
     "boards.greenhouse.io",
     "jobs.ashbyhq.com",
+    "myworkdayjobs.com",
+    "smartrecruiters.com",
+    "workable.com",
+    "bamboohr.com",
 ]
 
 
 def build_search_query(role, location=None, employment_type=None):
-    parts = [role.strip()]
+    clean_role = (role or "").strip()
+    parts = [clean_role] if clean_role else []
 
-    if location:
+    if location and location.strip():
         parts.append(location.strip())
-    if employment_type:
+    if employment_type and employment_type.strip():
         parts.append(employment_type.strip())
 
     parts.append("fresher graduate entry level")
-    parts.append("-course -tutorial -blog -article -news")
-    return " ".join(parts)
+    parts.append("-course -courses -training -trainings -bootcamp -bootcamps -tutorial -blog -article -news -curriculum -syllabus -degree")
+    return " ".join(parts).strip()
 
 
 def is_job_page(url, title="", content=""):
@@ -41,14 +46,29 @@ def is_job_page(url, title="", content=""):
     path = parsed_url.path.lower()
     page_text = f"{title} {content}".lower()
 
-    rejected_paths = ("/blog", "/news", "/course", "/tutorial", "/guide")
+    rejected_paths = (
+        "/blog", "/news", "/course", "/courses", "/tutorial", "/guide",
+        "/training", "/bootcamp", "/bootcamps", "/curriculum", "/articles",
+        "/pulse", "/post"
+    )
     if any(value in path for value in rejected_paths):
         return False
 
-    ats_hosts = ("jobs.lever.co", "boards.greenhouse.io", "jobs.ashbyhq.com")
+    ats_hosts = (
+        "jobs.lever.co",
+        "boards.greenhouse.io",
+        "jobs.ashbyhq.com",
+        "myworkdayjobs.com",
+        "smartrecruiters.com",
+        "workable.com",
+        "bamboohr.com",
+    )
     ats_listing = any(domain in host for domain in ats_hosts) and len(
         [part for part in path.split("/") if part]
     ) >= 2
+    if ats_listing:
+        return True
+
     job_path = any(
         value in path
         for value in (
@@ -62,37 +82,272 @@ def is_job_page(url, title="", content=""):
     )
     job_language = any(
         value in page_text
-        for value in ("apply", "hiring", "job", "opening", "internship", "graduate")
+        for value in ("apply", "hiring", "job", "opening", "internship", "graduate", "career", "engineer", "developer", "role", "position")
     )
 
-    return (ats_listing or job_path) and job_language
+    return job_path and job_language
+
+
+SPAM_TRAINING_PATTERNS = [
+    # Candidate fees, deposits, payments
+    r"\b(?:registration|enrollment|admission|training|course|bootcamp|program|onboarding|processing|security|seat)\s+(?:fee|fees|cost|charge|charges|deposit|amount)\b",
+    r"\b(?:fee|fees|charge|charges|cost)\s*(?:of|is|:|-)\s*(?:inr|rs\.?|usd|\$|€|£|\d+)",
+    r"\bpay\s+(?:a\s+)?(?:nominal|small|upfront|mandatory|one-time|refundable|non-refundable)?\s*(?:fee|amount|charges?|deposit)\b",
+    r"\b(?:refundable|non-refundable)\s+(?:fee|deposit|charges?|amount)\b",
+    r"\b(?:candidates?|students?)\s+(?:need|needs|required|must|have)\s+to\s+pay\b",
+    r"\b(?:fee\s+payable|fees\s+applicable|charges\s+apply)\b",
+    r"\bself[- ]funded\s+(?:training|internship)\b",
+    # Placement guarantees, ISAs, pay-after-placement schemes
+    r"\b100%\s*(?:job\s+)?(?:placement\s+guarantee|guaranteed\s+placement|placement\s+assistance)\b",
+    r"\b(?:100%\s*)?(?:job\s*)?placement\s*(?:fee|fees|cost|charge|charges)\b",
+    r"\b(?:guaranteed|assured)\s+placement\b",
+    r"\bpay[- ]after[- ]placement\b",
+    r"\b(?:pay[- ]after[- ]placement\s+)?isa\b",
+    r"\bincome\s+share\s+agreement\b",
+    r"\bmoney[- ]back\s+guarantee\s+if\s+not\s+placed\b",
+    # Course / batch enrollment disguised as a job
+    r"\b(?:enroll|register)\s+(?:now|today)\s+(?:for|in)\s+(?:our|the|this)?\s*(?:course|program|batch|bootcamp|classes)\b",
+    r"\b(?:batch|classes)\s+start(?:s|ing)?\s+(?:on|from|soon|every|weekly|monthly|\d)\b",
+    r"\b(?:curriculum|syllabus)\s*:\s*",
+    r"\bcourse\s+duration\s*:\s*\d+\s*(?:weeks?|months?|days?|hours?)\b",
+    r"\blimited\s+seats?\s+(?:available|remaining)\b",
+    r"\b(?:training|internship)\s+cum\s+placement\b",
+    r"\btraining-cum-placement\b",
+    # Scam / fake placement offers
+    r"\bpay\s+(?:for\s+)?(?:laptop|equipment|offer\s+letter|interview|id\s+card|gate\s+pass)\b",
+    r"\bdeposit\s+for\s+(?:laptop|assets?|tools?|id\s+card|equipment)\b",
+    r"\b(?:laptop|equipment|assets?)\s+deposit\b",
+    # Title-level spam keywords
+    r"\b(?:bootcamp|placement\s+guarantee|pay[- ]after[- ]placement)\b",
+]
+
+
+def _is_spam_training_program(title="", description=""):
+    title_text = (title or "").lower()
+    description_text = (description or "").lower()
+    combined_text = f"{title_text} {description_text}"
+
+    if any(term in title_text for term in ("bootcamp", "placement guarantee", "pay after placement", "pay-after-placement")):
+        return True
+
+    return any(re.search(pattern, combined_text, re.IGNORECASE) for pattern in SPAM_TRAINING_PATTERNS)
+
+
+def _is_company_or_mentor_sentence(sentence: str) -> bool:
+    patterns = [
+        r"\b(?:founded|established|in\s+business|track\s+record|history|legacy|heritage)\b",
+        r"\b(?:mentors?|leaders?|leadership|managers?|seniors?|team)\b",
+        r"\b(?:we|our\s+company|our\s+team|our\s+firm|company)\s+(?:has|have)\s+\d+\+?\s*years?\b",
+        r"\b(?:over|more\s+than)\s+\d+\+?\s*years?\s+(?:of\s+)?(?:experience|expertise|history|service|legacy|heritage)\s+(?:delivering|providing|serving|building|in\s+business|across)\b",
+        r"\b(?:over|more\s+than)\s+(?:1\d|[2-9]\d)\s*\+?\s*years?\s+(?:of\s+)?(?:experience|expertise|history|service|legacy|heritage)\b",
+        r"\b(?:with\s+over|with\s+more\s+than|bringing)\s+\d+\+?\s*years?\s+(?:of\s+)?(?:experience|expertise)\b",
+    ]
+    return any(re.search(p, sentence, re.IGNORECASE) for p in patterns)
+
+
+SENIOR_TITLE_PATTERN = re.compile(
+    r"\b(senior|sr\.?|principal|staff|architect|director|vp|vice\s+president|head\s+of)\b"
+    r"|\blead\b(?!\s+(?:gen(?:eration|erator)|trainee)\b)"
+    r"|\bmanager\b(?!\s+trainee\b)",
+    re.IGNORECASE,
+)
+
+
+def _clean_job_description(text):
+    text_clean = text or ""
+
+    sentences = re.split(r"[\.\n;]", text_clean)
+    filtered = [s for s in sentences if not _is_company_or_mentor_sentence(s)]
+    text_clean = " . ".join(filtered)
+
+    # 1. Company founding, age, and general tenure
+    text_clean = re.sub(
+        r"\b(?:founded|established|operating|started)\s+(?:in\s+\d{4}\s*)?(?:\([^)]*\)\s*)?(?:about|around|approx(?:\.|imately)?|over|nearly)?\s*\d+\+?\s*years?\s*ago\b",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+    text_clean = re.sub(
+        r"\b\d+\+?\s*years?\s*ago\b",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+    text_clean = re.sub(
+        r"\b\d+\+?\s*years?[\s-]old\s+(?:startup|company|firm|organization|business)\b",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+    text_clean = re.sub(
+        r"\b(?:over|more than|\+)?\s*\d+\+?\s*years?\s+in\s+(?:the\s+)?(?:business|market|industry|it\s+market)\b",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+    text_clean = re.sub(
+        r"\b\d+\+?\s*years?\s+(?:in\s+business|in\s+the\s+market|of\s+(?:industry|market|business|domain|proven|excellence|innovation|delivering|providing|serving|combined|legacy|heritage))\b[^\n.,]*",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+    text_clean = re.sub(
+        r"\b(?:we\s+have|our\s+company\s+has|our\s+firm\s+has|our\s+team\s+has|with\s+over|with\s+more\s+than|bringing\s+over|bringing)\s+\d+\+?\s*years?\s+(?:of\s+)?(?:experience|expertise|history|excellence|combined)?\b[^\n.,]*",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+    text_clean = re.sub(
+        r"\bfor\s+(?:over|more than|\+)?\s*\d+\+?\s*years?\b",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+    text_clean = re.sub(
+        r"\b(?:has|have)\s+\d+\+?\s*years?\s+(?:of\s+)?(?:experience|expertise)\s+in\b[^\n.,]*",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+
+    # 2. Education duration / graduation recency
+    text_clean = re.sub(
+        r"\b(?:within|in)\s+(?:the\s+)?(?:last|past)\s*\d+\s*years?\b",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+    text_clean = re.sub(
+        r"\bpast\s+\d+\s*years?\b",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+    text_clean = re.sub(
+        r"\b\d+[\s-]years?\s+(?:integrated\s+)?(?:degree|bachelor|program|course|diploma|m\.?tech|b\.?tech|graduation)\b",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+
+    # 3. Mentorship and organizational reporting context
+    text_clean = re.sub(
+        r"\b(?:mentored|coached|guided|trained|supported)\s+by\s+[^\n.,;]+",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+    text_clean = re.sub(
+        r"\b(?:work|working)\s+(?:closely\s+)?(?:with|alongside)\s+(?:a\s+|an\s+)?(?:senior|lead|principal|staff|experienced|expert|veteran)[^\n.,;]*",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+    text_clean = re.sub(
+        r"\b(?:report|reports|reporting)\s+(?:directly\s+)?to\s+[^\n.,;]+",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+    text_clean = re.sub(
+        r"\b(?:learn|learning)\s+from\s+[^\n.,;]+",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+    text_clean = re.sub(
+        r"\bmentors?\s+who\s+have\s+[^\n.,;]+",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+    text_clean = re.sub(
+        r"\bmentors?\s+with\s+[^\n.,;]+",
+        " ",
+        text_clean,
+        flags=re.IGNORECASE,
+    )
+
+    return text_clean
+
+
+def _extract_job_title(job_description, explicit_title=""):
+    title = (explicit_title or "").strip()
+    if title:
+        return title
+
+    desc = job_description or ""
+    title_match = re.search(
+        r"^(?:job\s+title|title|role|position)\s*[:\-]\s*(.+)$",
+        desc,
+        flags=re.MULTILINE | re.IGNORECASE,
+    )
+    if title_match:
+        return title_match.group(1).strip()
+
+    lines = [line.strip() for line in desc.splitlines() if line.strip()]
+    if lines:
+        first_line = lines[0]
+        if (
+            len(first_line) <= 60
+            and not first_line.endswith((".", "!", "?"))
+            and not re.search(
+                r"\b(we|you|our|looking|hiring|seeking|welcome|responsibilities|requirements|about)\b",
+                first_line,
+                re.IGNORECASE,
+            )
+        ):
+            return first_line
+
+    return ""
 
 
 def is_fresher_job(title, description=""):
-    title_text = (title or "").lower()
-    description_text = (description or "").lower()
-
-    senior_titles = ("senior", "sr.", "sr ", "principal", "staff", "lead", "manager", "architect")
-    if any(value in title_text for value in senior_titles):
+    resolved_title = _extract_job_title(description, title)
+    if resolved_title and SENIOR_TITLE_PATTERN.search(resolved_title):
         return False
 
-    experience_ranges = re.findall(
-        r"\b(\d+)\s*(?:to|-|\u2013|\u2014)\s*(\d+)\s*(?:years?|yrs?)",
-        description_text,
-    )
-    minimum_experience = re.findall(
-        r"\b(\d+)\s*\+\s*(?:years?|yrs?)",
-        description_text,
-    )
-    fixed_experience = re.findall(
-        r"(?<![-\u2013\u2014\d])\b(\d+)\s*(?:years?|yrs?)",
-        description_text,
-    )
+    clean_text = _clean_job_description(description)
 
-    if any(int(maximum) > 2 for _, maximum in experience_ranges):
-        return False
-    if any(int(years) > 2 for years in minimum_experience + fixed_experience):
-        return False
+    # 1. Range requirements (e.g. 0-3 years, 1-3 years, 3-5 years)
+    ranges = re.findall(
+        r"(?<![-–—\d])(\d+)\s*(?:to|-|\u2013|\u2014)\s*(\d+)\s*(?:years?|yrs?|yoe)\b",
+        clean_text,
+        re.IGNORECASE,
+    )
+    for min_str, _ in ranges:
+        if int(min_str) > 2:
+            return False
+
+    # 2. Plus requirements (e.g. 3+ years, 5+ years)
+    plus_matches = re.findall(
+        r"(?<![-–—\d])(\d+)\s*\+\s*(?:years?|yrs?|yoe)\b",
+        clean_text,
+        re.IGNORECASE,
+    )
+    for yr in plus_matches:
+        if int(yr) >= 3:
+            return False
+
+    # 3. Minimum / at least requirements (e.g. Minimum 3 years)
+    min_matches = re.findall(
+        r"\b(?:minimum|at least|min\.?)\s*(\d+)\s*(?:years?|yrs?|yoe)\b",
+        clean_text,
+        re.IGNORECASE,
+    )
+    for yr in min_matches:
+        if int(yr) >= 3:
+            return False
+
+    # 4. Explicit candidate single requirements of 4+ years
+    single_matches = re.findall(
+        r"(?<![-–—\d])(\d+)\s*(?:years?|yrs?|yoe)\b(?:\s+(?:of\s+[\w\s]{0,25})?(?:experience|exp))?",
+        clean_text,
+        re.IGNORECASE,
+    )
+    for yr in single_matches:
+        if int(yr) >= 4:
+            return False
 
     return True
 
@@ -103,6 +358,9 @@ def normalize_tavily_job(result):
     content = (result.get("content") or "").strip()
 
     if not is_job_page(url, raw_title, content):
+        return None
+
+    if _is_spam_training_program(raw_title, content):
         return None
 
     title, company = _split_title_and_company(raw_title)
@@ -173,6 +431,8 @@ def run_job_search(role, location=None, employment_type=None, providers=None):
             continue
         if not is_job_page(job["url"], job["title"], job.get("description", "")):
             continue
+        if _is_spam_training_program(job["title"], job.get("description", "")):
+            continue
         if not is_fresher_job(job["title"], job.get("description", "")):
             continue
         valid_jobs.append(job)
@@ -185,19 +445,23 @@ def run_job_search(role, location=None, employment_type=None, providers=None):
 
 
 def search_serpapi(query):
-    api_key = os.getenv("SERPAPI_API_KEY")
+    api_key = (os.getenv("SERPAPI_API_KEY") or "").strip()
     if not api_key:
         return [], "SerpAPI is not configured on the server."
 
-    response = requests.get(
-        "https://serpapi.com/search.json",
-        params={"engine": "google_jobs", "q": query, "api_key": api_key},
-        timeout=20,
-    )
-    response.raise_for_status()
+    try:
+        response = requests.get(
+            "https://serpapi.com/search.json",
+            params={"engine": "google_jobs", "q": query, "api_key": api_key},
+            timeout=20,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except Exception as exc:
+        return [], f"SerpAPI search failed: {exc}"
 
     jobs = []
-    for result in response.json().get("jobs_results", []):
+    for result in data.get("jobs_results", []):
         job = _normalize_serpapi_job(result)
         if job:
             jobs.append(job)
@@ -207,18 +471,26 @@ def search_serpapi(query):
 
 
 def search_tavily(query):
-    api_key = os.getenv("TAVILY_API_KEY")
+    api_key = (os.getenv("TAVILY_API_KEY") or os.getenv("TAVILY_SEARCH_API_KEY") or "").strip()
     if not api_key:
         return [], "Tavily is not configured on the server."
 
-    from tavily import TavilyClient
+    try:
+        from tavily import TavilyClient
+    except ImportError:
+        return [], "tavily-python is not installed on the server."
 
-    response = TavilyClient(api_key=api_key).search(
-        query=query,
-        search_depth="advanced",
-        max_results=10,
-        include_domains=TRUSTED_JOB_DOMAINS,
-    )
+    try:
+        os.environ["TAVILY_API_KEY"] = api_key
+        client = TavilyClient(api_key=api_key)
+        response = client.search(
+            query=query,
+            search_depth="advanced",
+            max_results=10,
+            include_domains=TRUSTED_JOB_DOMAINS,
+        )
+    except Exception as exc:
+        return [], f"Tavily search failed: {exc}"
 
     jobs = []
     for result in response.get("results", []):
@@ -237,6 +509,9 @@ def _normalize_serpapi_job(result):
     url = _serpapi_job_url(result)
 
     if not title or not company or not url:
+        return None
+
+    if _is_spam_training_program(title, description):
         return None
 
     return {

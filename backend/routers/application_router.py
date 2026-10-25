@@ -56,6 +56,7 @@ def create_application(
             request.job_id,
             request.resume_id,
             request.confirmed,
+            resume_version_id=request.resume_version_id,
         )
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error

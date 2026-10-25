@@ -1,8 +1,8 @@
 # backend/models/application_model.py
 
+from datetime import datetime
 from sqlalchemy import Column, String, Text, Float, DateTime, ForeignKey, JSON, Integer
 from sqlalchemy.orm import relationship
-from datetime import datetime
 from .database import Base
 
 
@@ -13,6 +13,7 @@ class Application(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     resume_id = Column(String, ForeignKey("resumes.id"), nullable=True)
+    resume_version_id = Column(String, ForeignKey("resume_versions.id"), nullable=True)
     job_id = Column(String, ForeignKey("jobs.id"), nullable=True)
 
     status = Column(String, nullable=False, default="Saved")
@@ -35,6 +36,3 @@ class Application(Base):
     # Relationships
     resume = relationship("Resume", back_populates="applications")
     job = relationship("Job", back_populates="applications")
-
-
-

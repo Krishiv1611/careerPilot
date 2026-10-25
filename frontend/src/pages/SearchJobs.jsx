@@ -2,13 +2,34 @@ import { useEffect, useState } from 'react';
 import { ArrowUpRight, Bookmark, BriefcaseBusiness, CheckCircle2, Loader2, MapPin, Plus, Search, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-import { analyzeJobMatch, createApplication, discoverJobs, dismissJob, getAllJobs, getCandidateProfile, saveJob } from '../services/api';
-import { applyJobState } from '../app/job-workspace';
+import api, {
+  analyzeJobMatch,
+  createApplication,
+  discoverJobs,
+  dismissJob,
+  getAllJobs,
+  getCandidateProfile,
+  saveJob,
+} from '../services/api';
+import { applyJobState, applySavedJobState } from '../app/job-workspace';
+
+
+const getSavedJobs = async () => {
+  const response = await api.get('/jobs/saved');
+  return response.data;
+};
+
+const unsaveJob = async (jobId) => {
+  const response = await api.post(`/jobs/${jobId}/unsave`);
+  return response.data;
+};
 
 
 const SearchJobs = () => {
   const [form, setForm] = useState({ query: '', location: 'India', employment_type: 'full-time' });
-  const [jobs, setJobs] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
+  const [savedJobs, setSavedJobs] = useState([]);
+  const [activeTab, setActiveTab] = useState('search'); // 'search' | 'saved'
   const [selectedJob, setSelectedJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
@@ -22,25 +43,30 @@ const SearchJobs = () => {
   useEffect(() => {
     let active = true;
 
-    const loadSavedJobs = async () => {
+    const loadInitialData = async () => {
       try {
-        const [savedJobs, profile] = await Promise.all([getAllJobs(), getCandidateProfile()]);
+        const [feedJobs, persistentSaved, profile] = await Promise.all([
+          getAllJobs(),
+          getSavedJobs(),
+          getCandidateProfile(),
+        ]);
         if (!active) return;
-        setJobs(savedJobs);
-        setSelectedJob(savedJobs[0] || null);
+        setSearchResults(feedJobs);
+        setSavedJobs(persistentSaved);
+        setSelectedJob(feedJobs[0] || persistentSaved[0] || null);
         setForm({
           query: profile.target_roles?.[0] || '',
           location: profile.preferred_locations?.[0] || 'India',
           employment_type: profile.employment_types?.[0] || 'full-time',
         });
       } catch {
-        if (active) setMessage('Saved jobs could not be loaded. You can still try a new search.');
+        if (active) setMessage('Workspace jobs could not be loaded. You can still try a new search.');
       } finally {
         if (active) setLoading(false);
       }
     };
 
-    loadSavedJobs();
+    loadInitialData();
     return () => {
       active = false;
     };
@@ -60,7 +86,8 @@ const SearchJobs = () => {
 
     try {
       const result = await discoverJobs(form);
-      setJobs(result.jobs);
+      setSearchResults(result.jobs);
+      setActiveTab('search');
       setSelectedJob(result.jobs[0] || null);
       setWarnings(result.warnings || []);
 
@@ -72,6 +99,12 @@ const SearchJobs = () => {
     } finally {
       setSearching(false);
     }
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    const targetList = tab === 'saved' ? savedJobs : searchResults;
+    setSelectedJob(targetList[0] || null);
   };
 
   const addToApplications = async (job) => {
@@ -100,15 +133,54 @@ const SearchJobs = () => {
     }
   };
 
-  const updateWorkspaceState = async (job, state) => {
+  const handleToggleSave = async (job) => {
+    setUpdatingJobId(job.id);
+    setMessage('');
+    const isSaved = job.user_state === 'saved';
+
+    try {
+      const updated = isSaved ? await unsaveJob(job.id) : await saveJob(job.id);
+
+      const nextSearch = applyJobState(searchResults, updated);
+      const nextSaved = applySavedJobState(savedJobs, updated);
+
+      setSearchResults(nextSearch);
+      setSavedJobs(nextSaved);
+
+      if (activeTab === 'saved' && isSaved) {
+        setSelectedJob(nextSaved[0] || null);
+      } else {
+        setSelectedJob(updated);
+      }
+
+      setMessage(
+        isSaved
+          ? `${job.title} removed from Saved jobs.`
+          : `${job.title} saved for later.`
+      );
+    } catch (stateError) {
+      setMessage(stateError.response?.data?.detail || 'The job state could not be updated.');
+    } finally {
+      setUpdatingJobId(null);
+    }
+  };
+
+  const handleDismissJob = async (job) => {
     setUpdatingJobId(job.id);
     setMessage('');
     try {
-      const updated = state === 'saved' ? await saveJob(job.id) : await dismissJob(job.id);
-      const nextJobs = applyJobState(jobs, updated);
-      setJobs(nextJobs);
-      setSelectedJob(state === 'dismissed' ? (nextJobs[0] || null) : updated);
-      setMessage(state === 'saved' ? `${job.title} is saved in your job workspace.` : `${job.title} was removed from this workspace.`);
+      const updated = await dismissJob(job.id);
+
+      const nextSearch = applyJobState(searchResults, updated);
+      const nextSaved = applySavedJobState(savedJobs, updated);
+
+      setSearchResults(nextSearch);
+      setSavedJobs(nextSaved);
+
+      const currentList = activeTab === 'saved' ? nextSaved : nextSearch;
+      setSelectedJob(currentList[0] || null);
+
+      setMessage(`${job.title} was removed from this workspace.`);
     } catch (stateError) {
       setMessage(stateError.response?.data?.detail || 'The job workspace could not be updated.');
     } finally {
@@ -116,13 +188,15 @@ const SearchJobs = () => {
     }
   };
 
+  const displayedJobs = activeTab === 'saved' ? savedJobs : searchResults;
+
   return (
     <div className="space-y-7">
       <header>
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#36454f]">Focused discovery</p>
         <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-slate-950 sm:text-4xl">Find jobs worth applying to</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          Search SerpAPI and Tavily together. CareerPilot keeps actual job pages, removes senior roles and duplicate listings, and shows provider problems honestly.
+          Search SerpAPI and Tavily together. CareerPilot keeps actual job pages, removes senior roles and duplicate listings, and lets you save target jobs persistently across searches.
         </p>
       </header>
 
@@ -183,19 +257,70 @@ const SearchJobs = () => {
       ))}
       {message && <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">{message}</div>}
 
+      {/* Dedicated Workspace Navigation Tabs */}
+      <div className="flex border-b border-slate-200">
+        <button
+          type="button"
+          onClick={() => handleTabChange('search')}
+          className={`flex items-center gap-2.5 border-b-2 px-5 py-3.5 text-sm font-bold transition-colors ${
+            activeTab === 'search'
+              ? 'border-[#36454f] text-[#36454f]'
+              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800'
+          }`}
+        >
+          <Search className="h-4 w-4" />
+          <span>Live Search Results</span>
+          {searchResults.length > 0 && (
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+              activeTab === 'search' ? 'bg-[#36454f] text-white' : 'bg-slate-100 text-slate-600'
+            }`}>
+              {searchResults.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleTabChange('saved')}
+          className={`flex items-center gap-2.5 border-b-2 px-5 py-3.5 text-sm font-bold transition-colors ${
+            activeTab === 'saved'
+              ? 'border-[#36454f] text-[#36454f]'
+              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800'
+          }`}
+        >
+          <Bookmark className="h-4 w-4" />
+          <span>Saved for Later</span>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+            activeTab === 'saved' ? 'bg-[#36454f] text-white' : 'bg-slate-100 text-slate-600'
+          }`}>
+            {savedJobs.length}
+          </span>
+        </button>
+      </div>
+
       {loading ? (
         <div className="grid min-h-72 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-[#708090]" /></div>
-      ) : jobs.length === 0 ? (
-        <EmptyState />
+      ) : displayedJobs.length === 0 ? (
+        activeTab === 'saved' ? (
+          <EmptySavedState onBrowse={() => handleTabChange('search')} />
+        ) : (
+          <EmptySearchState />
+        )
       ) : (
         <div className="grid min-h-[35rem] overflow-hidden rounded-2xl border border-slate-200 bg-white lg:grid-cols-[0.78fr_1.22fr]">
           <section className="border-b border-slate-200 lg:border-b-0 lg:border-r">
             <div className="border-b border-slate-200 px-5 py-4">
-              <p className="text-sm font-bold text-slate-950">{jobs.length} relevant {jobs.length === 1 ? 'role' : 'roles'}</p>
-              <p className="mt-1 text-xs text-slate-500">Select a role to review the source and details.</p>
+              <p className="text-sm font-bold text-slate-950">
+                {displayedJobs.length} {activeTab === 'saved' ? 'saved' : 'relevant'} {displayedJobs.length === 1 ? 'role' : 'roles'}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {activeTab === 'saved'
+                  ? 'Roles you have bookmarked for later review. Subsequent searches will not clear these.'
+                  : 'Select a role to review the source, check requirement match, or save for later.'}
+              </p>
             </div>
             <div className="max-h-[42rem] overflow-y-auto p-2">
-              {jobs.map((job) => (
+              {displayedJobs.map((job) => (
                 <JobListItem
                   key={job.id || job.url}
                   job={job}
@@ -213,8 +338,8 @@ const SearchJobs = () => {
             updatingState={updatingJobId === selectedJob?.id}
             matching={matchingJobId === selectedJob?.id}
             onSave={addToApplications}
-            onSaveJob={(job) => updateWorkspaceState(job, 'saved')}
-            onDismissJob={(job) => updateWorkspaceState(job, 'dismissed')}
+            onToggleSave={handleToggleSave}
+            onDismissJob={handleDismissJob}
             onCheckMatch={checkMatch}
           />
         </div>
@@ -235,7 +360,14 @@ const JobListItem = ({ job, active, onSelect }) => (
         <h2 className="font-bold text-slate-950">{job.title}</h2>
         <p className="mt-1 text-sm text-slate-600">{job.company}</p>
       </div>
-      {job.verification_status === 'verified' && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-label="Verified job page" />}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {job.user_state === 'saved' && (
+          <Bookmark className="h-4 w-4 text-[#36454f] fill-[#36454f]" aria-label="Saved job" />
+        )}
+        {job.verification_status === 'verified' && (
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-label="Verified job page" />
+        )}
+      </div>
     </div>
     <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
       <span>{job.location || 'Location not specified'}</span>
@@ -245,8 +377,10 @@ const JobListItem = ({ job, active, onSelect }) => (
 );
 
 
-const JobDetails = ({ job, match, saving, updatingState, matching, onSave, onSaveJob, onDismissJob, onCheckMatch }) => {
+const JobDetails = ({ job, match, saving, updatingState, matching, onSave, onToggleSave, onDismissJob, onCheckMatch }) => {
   if (!job) return <div className="grid place-items-center p-10 text-sm text-slate-500">Choose a job to review it.</div>;
+
+  const isSaved = job.user_state === 'saved';
 
   return (
     <article className="p-5 sm:p-7 lg:p-9">
@@ -256,7 +390,11 @@ const JobDetails = ({ job, match, saving, updatingState, matching, onSave, onSav
             <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${job.verification_status === 'verified' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
               {job.verification_status === 'verified' ? 'Live page verified' : 'Provider job page'}
             </span>
-            {job.user_state === 'saved' && <span className="rounded-full bg-[#eef0f1] px-2.5 py-1 text-xs font-bold text-[#36454f]">Saved job</span>}
+            {isSaved && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#eef0f1] px-2.5 py-1 text-xs font-bold text-[#36454f]">
+                <Bookmark className="h-3 w-3 fill-[#36454f]" /> Saved for Later
+              </span>
+            )}
             {job.source && <span className="text-xs text-slate-500">via {job.source}</span>}
           </div>
           <h2 className="mt-4 text-2xl font-black tracking-[-0.03em] text-slate-950">{job.title}</h2>
@@ -265,23 +403,50 @@ const JobDetails = ({ job, match, saving, updatingState, matching, onSave, onSav
 
         <div className="flex shrink-0 flex-wrap gap-2">
           {job.id && (
-            <button type="button" onClick={() => onSaveJob(job)} disabled={updatingState || job.user_state === 'saved'} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              <Bookmark className="h-4 w-4" /> {job.user_state === 'saved' ? 'Saved' : 'Save job'}
+            <button
+              type="button"
+              onClick={() => onToggleSave(job)}
+              disabled={updatingState}
+              className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-bold transition-colors ${
+                isSaved
+                  ? 'border-[#36454f] bg-[#eef0f1] text-[#36454f] hover:bg-slate-200'
+                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+              } disabled:cursor-not-allowed disabled:opacity-50`}
+              aria-label={isSaved ? 'Unsave job' : 'Save job'}
+            >
+              <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-[#36454f]' : ''}`} />
+              {isSaved ? 'Saved' : 'Save job'}
             </button>
           )}
           {job.id && (
-            <button type="button" onClick={() => onDismissJob(job)} disabled={updatingState} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:text-slate-300" aria-label="Dismiss job">
+            <button
+              type="button"
+              onClick={() => onDismissJob(job)}
+              disabled={updatingState}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:text-slate-300"
+              aria-label="Dismiss job"
+            >
               <X className="h-4 w-4" /> Dismiss
             </button>
           )}
           {job.id && (
-            <button type="button" onClick={() => onSave(job)} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#36454f] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#202a30] disabled:bg-slate-300">
+            <button
+              type="button"
+              onClick={() => onSave(job)}
+              disabled={saving}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#36454f] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#202a30] disabled:bg-slate-300"
+            >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {saving ? 'Saving…' : 'Save to applications'}
             </button>
           )}
           {job.url && (
-            <a href={job.url} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#36454f] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#202a30]">
+            <a
+              href={job.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#36454f] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#202a30]"
+            >
               View original <ArrowUpRight className="h-4 w-4" />
             </a>
           )}
@@ -328,11 +493,29 @@ const MatchSummary = ({ match, jobId }) => (
 );
 
 
-const EmptyState = () => (
+const EmptySearchState = () => (
   <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
     <BriefcaseBusiness className="mx-auto h-9 w-9 text-slate-300" />
     <h2 className="mt-4 font-bold text-slate-950">Search for your first role</h2>
     <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">Try a clear role such as “frontend developer”, choose India or a city, and select full-time or internship.</p>
+  </div>
+);
+
+
+const EmptySavedState = ({ onBrowse }) => (
+  <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+    <Bookmark className="mx-auto h-9 w-9 text-slate-300" />
+    <h2 className="mt-4 font-bold text-slate-950">No saved jobs yet</h2>
+    <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+      When searching for jobs in the Live Search Results tab, click "Save job" on any role to keep it permanently saved in this tab across searches.
+    </p>
+    <button
+      type="button"
+      onClick={onBrowse}
+      className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#36454f] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#202a30]"
+    >
+      <Search className="h-4 w-4" /> Browse Live Search Results
+    </button>
   </div>
 );
 

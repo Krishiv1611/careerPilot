@@ -2,28 +2,31 @@ from datetime import datetime, timezone
 
 
 ALLOWED_TRANSITIONS = {
-    "Saved": {"Preparing", "Withdrawn"},
+    "Saved": {"Preparing", "Applied", "Withdrawn"},
     "Preparing": {"Saved", "Applied", "Withdrawn"},
     "Applied": {"Assessment", "Interview", "Offer", "Rejected", "Withdrawn"},
     "Assessment": {"Interview", "Offer", "Rejected", "Withdrawn"},
     "Interview": {"Offer", "Rejected", "Withdrawn"},
-    "Offer": {"Withdrawn"},
-    "Rejected": set(),
-    "Withdrawn": set(),
+    "Offer": {"Applied", "Interview", "Withdrawn"},
+    "Rejected": {"Saved", "Preparing", "Applied"},
+    "Withdrawn": {"Saved", "Preparing", "Applied"},
 }
 
 
-def build_new_application(job_id, resume_id=None, confirmed=False):
+def build_new_application(job_id, resume_id=None, confirmed=False, resume_version_id=None):
     if not confirmed:
         raise ValueError("Confirm before adding this job to Applications.")
 
-    return {
+    application = {
         "job_id": job_id,
         "resume_id": resume_id,
         "status": "Saved",
         "status_source": "user",
         "timeline": [_timeline_event("Saved", "user")],
     }
+    if resume_version_id:
+        application["resume_version_id"] = resume_version_id
+    return application
 
 
 def change_status(current_status, new_status, source="user"):

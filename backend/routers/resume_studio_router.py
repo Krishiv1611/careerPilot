@@ -18,6 +18,7 @@ from models.job_model import Job
 from models.resume_model import Resume
 from models.resume_version_model import ResumeVersion
 from models.user_model import User
+from services.ats_pdf_service import generate_ats_pdf
 from services.docx_resume_service import create_tailored_docx
 from services.resume_diff_service import apply_change_decisions, build_line_changes
 from services.user_job_service import find_user_job
@@ -241,7 +242,7 @@ def download_resume_version(
             headers={"Content-Disposition": "attachment; filename=careerpilot-tailored-resume.docx"},
         )
 
-    document = _create_pdf(version.content)
+    document = generate_ats_pdf(version.content)
     return StreamingResponse(
         document,
         media_type="application/pdf",

@@ -177,4 +177,35 @@ export const updateCandidateProfile = async (profile) => {
     return response.data;
 };
 
+
+export const getSavedJobs = async () => {
+    const response = await api.get('/jobs/saved');
+    return response.data;
+};
+
+export const unsaveJob = async (jobId) => {
+    const response = await api.post(`/jobs/${jobId}/unsave`);
+    return response.data;
+};
+
+export const generateOutreach = async (payload) => {
+    const response = await api.post('/outreach/generate', payload);
+    return response.data;
+};
+
+export const fetchLeetCodeProfile = async (username) => {
+    const response = await api.post('/connectors/leetcode', { username });
+    return response.data;
+};
+
+export const fetchGitHubProfile = async (username) => {
+    const response = await api.post('/connectors/github', { username });
+    return response.data;
+};
+
+export const importLinkedInProfile = async (text) => {
+    const response = await api.post('/connectors/linkedin', { text });
+    return response.data;
+};
+
 export default api;

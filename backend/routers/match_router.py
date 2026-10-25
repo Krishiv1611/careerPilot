@@ -43,7 +43,7 @@ def analyze_match(
     if not resume:
         raise HTTPException(status_code=400, detail="Add a resume before checking this match.")
 
-    analysis = match_resume_to_job(resume.raw_text, job.description)
+    analysis = match_resume_to_job(resume.raw_text, job.description, job_title=job.title)
     match = MatchResult(
         id=str(uuid4()),
         user_id=current_user.id,

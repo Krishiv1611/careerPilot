@@ -66,6 +66,7 @@ frontend/.vite/
 .coverage
 coverage/
 htmlcov/
+.agents/
 
 # Database (Explicit)
 *.db

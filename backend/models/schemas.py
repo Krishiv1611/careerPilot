@@ -46,6 +46,7 @@ class JobResponseModel(BaseModel):
 class ApplicationCreateModel(BaseModel):
     job_id: str
     resume_id: str | None = None
+    resume_version_id: str | None = None
     confirmed: bool = False
 
 
@@ -70,6 +71,7 @@ class ApplicationResponseModel(BaseModel):
     id: str
     user_id: int
     resume_id: str | None = None
+    resume_version_id: str | None = None
     job_id: str
     status: str
     status_source: str

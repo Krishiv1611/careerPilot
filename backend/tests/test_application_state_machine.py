@@ -30,3 +30,27 @@ class ApplicationStateMachineTests(TestCase):
     def test_impossible_status_jump_is_rejected(self):
         with self.assertRaises(ValueError):
             change_status("Saved", "Offer", "user")
+
+    def test_student_can_move_directly_from_saved_to_applied(self):
+        result = change_status("Saved", "Applied", "user")
+        self.assertEqual("Applied", result["status"])
+
+    def test_student_can_reopen_rejected_application(self):
+        result_prep = change_status("Rejected", "Preparing", "user")
+        self.assertEqual("Preparing", result_prep["status"])
+        result_app = change_status("Rejected", "Applied", "user")
+        self.assertEqual("Applied", result_app["status"])
+
+    def test_student_can_reopen_withdrawn_application(self):
+        result = change_status("Withdrawn", "Saved", "user")
+        self.assertEqual("Saved", result["status"])
+
+    def test_new_application_can_link_resume_version_id(self):
+        application = build_new_application(
+            "job-1",
+            "resume-1",
+            confirmed=True,
+            resume_version_id="version-42",
+        )
+        self.assertEqual("version-42", application.get("resume_version_id"))
+

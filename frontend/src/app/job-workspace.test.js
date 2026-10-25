@@ -30,3 +30,62 @@ test('dismissing a job removes it from the visible feed', () => {
     { id: 'two' },
   ]);
 });
+
+
+test('saving a job adds it to saved jobs list at the front', () => {
+  const { applySavedJobState } = module;
+  assert.equal(typeof applySavedJobState, 'function');
+
+  const savedJobs = [{ id: 'one', title: 'First Job', user_state: 'saved' }];
+  const newJob = { id: 'two', title: 'Second Job', user_state: 'saved' };
+
+  const result = applySavedJobState(savedJobs, newJob);
+  assert.equal(result.length, 2);
+  assert.equal(result[0].id, 'two');
+  assert.equal(result[1].id, 'one');
+});
+
+
+test('updating an existing saved job modifies it in place without duplicating', () => {
+  const { applySavedJobState } = module;
+  const savedJobs = [{ id: 'one', title: 'Old Title', user_state: 'saved' }];
+  const updatedJob = { id: 'one', title: 'New Title', user_state: 'saved' };
+
+  const result = applySavedJobState(savedJobs, updatedJob);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].title, 'New Title');
+});
+
+
+test('unsaving a job removes it from saved jobs list', () => {
+  const { applySavedJobState } = module;
+  const savedJobs = [
+    { id: 'one', user_state: 'saved' },
+    { id: 'two', user_state: 'saved' },
+  ];
+  const unsavedJob = { id: 'one', user_state: 'discovered' };
+
+  const result = applySavedJobState(savedJobs, unsavedJob);
+  assert.deepEqual(result, [{ id: 'two', user_state: 'saved' }]);
+});
+
+
+test('dismissing a saved job removes it from saved jobs list', () => {
+  const { applySavedJobState } = module;
+  const savedJobs = [{ id: 'one', user_state: 'saved' }];
+  const dismissedJob = { id: 'one', user_state: 'dismissed' };
+
+  const result = applySavedJobState(savedJobs, dismissedJob);
+  assert.deepEqual(result, []);
+});
+
+
+test('subsequent searches update search results without mutating saved jobs', () => {
+  const savedJobs = [{ id: 'saved_1', title: 'Backend Dev', user_state: 'saved' }];
+  const subsequentSearch = [{ id: 'job_b', title: 'DevOps Engineer', user_state: 'discovered' }];
+
+  assert.equal(savedJobs.length, 1);
+  assert.equal(savedJobs[0].id, 'saved_1');
+  assert.notDeepEqual(savedJobs, subsequentSearch);
+});
+

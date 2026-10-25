@@ -81,10 +81,9 @@ def apply_simple_prompt(resume_text, instruction, job_description=""):
             raise ValueError("No existing resume evidence matches the detected job skills.")
         return _prioritize_lines(resume_text, matched_skills)
 
-    raise ValueError(
-        "Try 'Emphasize Python', 'Remove the objective statement', "
-        "'Tailor this to the job description', or 'Make it concise'."
-    )
+    from services.ai_tailoring_service import tailor_resume_with_ai
+    response = tailor_resume_with_ai(resume_text, instruction, job_description)
+    return response.full_content
 
 
 def _build_evidence_map(resume_text, skills):

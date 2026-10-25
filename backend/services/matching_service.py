@@ -1,9 +1,10 @@
 import re
 
+from services.job_discovery_service import is_fresher_job
 from services.skill_extractor import SkillExtractor
 
 
-def match_resume_to_job(resume_text, job_description):
+def match_resume_to_job(resume_text, job_description, job_title=""):
     extractor = SkillExtractor()
     resume_skills, _ = extractor.extract_skills(resume_text)
     job_skills, _ = extractor.extract_skills(job_description)
@@ -12,12 +13,14 @@ def match_resume_to_job(resume_text, job_description):
     matched_skills = sorted(set(resume_skills) & set(job_skills))
     missing_skills = sorted(set(job_skills) - set(resume_skills))
     missing_must_haves = sorted(set(must_have_skills) - set(resume_skills))
+    hard_blockers = missing_must_haves
+    preferred_gaps = sorted(set(missing_skills) - set(missing_must_haves))
     evidence_map = _evidence_map(resume_text, matched_skills)
 
     reasons = []
     if missing_must_haves:
         reasons.append("Missing must-have skills: " + ", ".join(missing_must_haves))
-    if _requires_senior_experience(job_description):
+    if _requires_senior_experience(job_description, job_title=job_title):
         reasons.append("The job asks for senior-level experience or more than two years of experience.")
 
     if reasons:
@@ -39,29 +42,39 @@ def match_resume_to_job(resume_text, job_description):
         "missing_skills": missing_skills,
         "must_have_skills": must_have_skills,
         "missing_must_haves": missing_must_haves,
+        "hard_blockers": hard_blockers,
+        "preferred_gaps": preferred_gaps,
         "evidence_map": evidence_map,
     }
 
 
 def _extract_must_have_skills(job_description, extractor):
-    must_have_text = " ".join(
-        re.findall(
-            r"(?:must have|required|requirements?\s*:)([^.\n]+)",
-            job_description,
-            flags=re.IGNORECASE,
-        )
+    texts = []
+
+    # 1. Multiline requirements sections
+    section_pattern = (
+        r"(?:(?:^|\n)\s*(?:requirements?|qualifications?|must[- ]haves?|"
+        r"what you(?:'ll| will) need|minimum qualifications?|basic qualifications?)[:\s]*\n)"
+        r"([\s\S]*?)(?=(?:\n\s*(?:nice to have|preferred|bonus|plus|benefits|about (?:us|the company)|responsibilities)\b|\n\s*\n\s*\n|\Z))"
     )
+    for match in re.findall(section_pattern, job_description, flags=re.IGNORECASE):
+        texts.append(match)
+
+    # 2. Inline requirements statements
+    inline_matches = re.findall(
+        r"(?:must have|required|requirements?\s*:)([^.\n]+)",
+        job_description,
+        flags=re.IGNORECASE,
+    )
+    texts.extend(inline_matches)
+
+    must_have_text = " ".join(texts)
     skills, _ = extractor.extract_skills(must_have_text)
     return skills
 
 
-def _requires_senior_experience(job_description):
-    text = job_description.lower()
-    if re.search(r"\b(senior|principal|staff|lead)\b", text):
-        return True
-
-    years = re.findall(r"(\d+)\s*(?:\+|to|-)?\s*(?:\d+)?\s*years?", text)
-    return any(int(year) > 2 for year in years)
+def _requires_senior_experience(job_description, job_title=""):
+    return not is_fresher_job(job_title, job_description)
 
 
 def _evidence_map(resume_text, matched_skills):

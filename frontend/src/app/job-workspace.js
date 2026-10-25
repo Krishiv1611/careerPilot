@@ -5,3 +5,16 @@ export const applyJobState = (jobs, updatedJob) => {
 
   return jobs.map((job) => (job.id === updatedJob.id ? { ...job, ...updatedJob } : job));
 };
+
+export const applySavedJobState = (savedJobs, updatedJob) => {
+  if (updatedJob.user_state === 'saved') {
+    const exists = savedJobs.some((job) => job.id === updatedJob.id);
+    if (exists) {
+      return savedJobs.map((job) => (job.id === updatedJob.id ? { ...job, ...updatedJob } : job));
+    }
+    return [updatedJob, ...savedJobs];
+  }
+
+  return savedJobs.filter((job) => job.id !== updatedJob.id);
+};
+
