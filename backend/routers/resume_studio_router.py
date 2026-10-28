@@ -19,6 +19,7 @@ from models.resume_model import Resume
 from models.resume_version_model import ResumeVersion
 from models.user_model import User
 from services.ats_pdf_service import generate_ats_pdf
+from services.ats_scorer_service import calculate_ats_score
 from services.docx_resume_service import create_tailored_docx
 from services.resume_diff_service import apply_change_decisions, build_line_changes
 from services.user_job_service import find_user_job
@@ -271,6 +272,10 @@ def _get_owned_version(db, version_id, user_id):
 
 
 def _version_response(version):
+    ats_diag = calculate_ats_score(
+        version.content or version.base_content or "",
+        version.job_description or "",
+    )
     return {
         "id": version.id,
         "resume_id": version.resume_id,
@@ -289,6 +294,8 @@ def _version_response(version):
         "project_suggestions": version.project_suggestions or [],
         "prompt_history": version.prompt_history or [],
         "template_mode": version.template_mode,
+        "ats_score": ats_diag["overall_score"],
+        "ats_diagnostic": ats_diag,
         "created_at": version.created_at,
     }
 

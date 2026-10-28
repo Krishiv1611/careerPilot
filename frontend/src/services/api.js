@@ -208,4 +208,18 @@ export const importLinkedInProfile = async (text) => {
     return response.data;
 };
 
+
+export const getSkillBlueprint = async (skill) => {
+    const response = await api.get(`/growth/blueprints/${encodeURIComponent(skill)}`);
+    return response.data;
+};
+
+export const verifyGitHubRepo = async (repoUrl, skill) => {
+    const response = await api.post('/growth/verify-repo', {
+        repo_url: repoUrl,
+        skill,
+    });
+    return response.data;
+};
+
 export default api;
