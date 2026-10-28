@@ -1,7 +1,6 @@
 import re
 
 from services.ats_pdf_service import parse_resume_sections
-from services.matching_service import _extract_must_have_skills
 from services.skill_extractor import SkillExtractor
 
 ACTION_VERB_SET = {
@@ -76,6 +75,7 @@ def calculate_ats_score(resume_text: str, job_description: str = "") -> dict:
     # 2. Keyword & Skill Match (35 pts)
     keyword_pts = 35
     if job_description and job_description.strip():
+        from services.matching_service import _extract_must_have_skills
         extractor = SkillExtractor()
         resume_skills, _ = extractor.extract_skills(resume_text)
         job_skills, _ = extractor.extract_skills(job_description)

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from models.application_model import Application
 from models.database import get_db
 from models.job_model import Job
 from models.match_model import MatchResult
@@ -53,6 +54,14 @@ def analyze_match(
         **analysis,
     )
     db.add(match)
+
+    app = db.query(Application).filter(
+        Application.user_id == current_user.id,
+        Application.job_id == job.id,
+    ).first()
+    if app:
+        app.ats_score = analysis.get("ats_score")
+
     db.commit()
     db.refresh(match)
     return _match_response(match)
@@ -86,6 +95,10 @@ def _match_response(match):
         "missing_skills": match.missing_skills,
         "must_have_skills": match.must_have_skills,
         "missing_must_haves": match.missing_must_haves,
+        "hard_blockers": getattr(match, "hard_blockers", []),
+        "preferred_gaps": getattr(match, "preferred_gaps", []),
+        "ats_score": getattr(match, "ats_score", None),
+        "ats_diagnostic": getattr(match, "ats_diagnostic", {}),
         "evidence_map": match.evidence_map,
         "created_at": match.created_at,
     }

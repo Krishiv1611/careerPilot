@@ -87,4 +87,15 @@ class MatchingServiceTests(TestCase):
         self.assertIn("preferred_gaps", result)
         self.assertIn("kubernetes", result["preferred_gaps"])
 
+    def test_match_includes_authoritative_ats_diagnostic(self):
+        resume = "John Doe\njohn@example.com | github.com/johndoe\n\nEXPERIENCE\n- Engineered REST APIs using Python and SQL with 25% latency reduction."
+        jd = "Requirements: Python, SQL. 0-2 years experience."
+        result = match_resume_to_job(resume, jd)
+        self.assertIn("ats_diagnostic", result)
+        self.assertIn("ats_score", result)
+        self.assertGreaterEqual(result["ats_score"], 40)
+        self.assertIn("breakdown", result["ats_diagnostic"])
+        self.assertIn("parseability", result["ats_diagnostic"]["breakdown"])
+
+
 

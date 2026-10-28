@@ -1,5 +1,6 @@
 import re
 
+from services.ats_scorer_service import calculate_ats_score
 from services.job_discovery_service import is_fresher_job
 from services.skill_extractor import SkillExtractor
 
@@ -32,6 +33,7 @@ def match_resume_to_job(resume_text, job_description, job_title=""):
         eligibility_status = "eligible"
         reasons.append("No blocking requirement was detected from the available text.")
 
+    ats_diag = calculate_ats_score(resume_text, job_description)
     coverage = round((len(matched_skills) / len(job_skills)) * 100) if job_skills else 0
     return {
         "eligibility_status": eligibility_status,
@@ -45,7 +47,10 @@ def match_resume_to_job(resume_text, job_description, job_title=""):
         "hard_blockers": hard_blockers,
         "preferred_gaps": preferred_gaps,
         "evidence_map": evidence_map,
+        "ats_score": ats_diag["overall_score"],
+        "ats_diagnostic": ats_diag,
     }
+
 
 
 def _extract_must_have_skills(job_description, extractor):
