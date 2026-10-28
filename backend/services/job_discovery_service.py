@@ -408,9 +408,35 @@ def deduplicate_jobs(jobs):
     return unique_jobs
 
 
+def search_direct_ats(query):
+    try:
+        from services.ats_feed_service import fetch_direct_ats_jobs
+
+        ats_jobs = fetch_direct_ats_jobs(query=query, limit=10)
+        normalized = []
+        for j in ats_jobs:
+            normalized.append({
+                "title": j["title"],
+                "company": j["company"],
+                "location": j.get("location", "Remote"),
+                "employment_type": j.get("employment_type", "Full-time"),
+                "experience_level": "Entry level",
+                "skills": [],
+                "description": j.get("description", ""),
+                "salary_range": None,
+                "url": j.get("job_url", ""),
+                "source": j.get("source", "Verified ATS"),
+                "verification_status": "verified_ats",
+                "fetched_at": j.get("posted_at", datetime.now(timezone.utc).isoformat()),
+            })
+        return normalized, None
+    except Exception as error:
+        return [], f"Direct ATS feed error: {error}"
+
+
 def run_job_search(role, location=None, employment_type=None, providers=None):
     query = build_search_query(role, location, employment_type)
-    providers = providers or [search_serpapi, search_tavily]
+    providers = providers or [search_direct_ats, search_serpapi, search_tavily]
     jobs = []
     warnings = []
 
