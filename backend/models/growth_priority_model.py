@@ -17,6 +17,7 @@ class GrowthPriority(Base):
     job_count = Column(Integer, nullable=False, default=1)
     next_action = Column(Text, nullable=False)
     completion_rule = Column(Text, nullable=False)
+    blueprint_title = Column(String, nullable=True)
     status = Column(String, nullable=False, default="active")
     completion_source = Column(String, nullable=True)
     evidence_url = Column(Text, nullable=True)
