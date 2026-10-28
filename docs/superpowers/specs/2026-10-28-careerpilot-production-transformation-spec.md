@@ -125,11 +125,13 @@ A purpose-built Chrome Extension residing in the browser SidePanel:
    - Content script extracts the job title, company name, and full description directly from the DOM.
    - SidePanel calculates the real-time ATS match score against the student's active resume.
    - Highlights Hard Blockers and Missing Skills before the student wastes time applying.
-3. **1-Click DOM Autofill**:
-   - Pre-fills standard candidate fields: Full Name, Email, Phone, LinkedIn URL, GitHub URL, Portfolio.
+3. **1-Click DOM Autofill & Candidate Drawer**:
+   - Pre-fills standard candidate fields: Full Name, Email, Phone, LinkedIn URL, GitHub URL, Portfolio, Work Authorization, Notice Period, and Location Preferences.
+   - **Intelligent Screening Drawer**: Generates 1-click tailored 3-sentence responses for open-ended screening questions ("Why do you want to work here?", "Describe your experience with X") grounded in the student's verified evidence, with student preview before DOM insertion.
    - Automatically populates Education and Experience inputs on supported multi-step ATS forms.
-   - Generates tailored answers for common screening questions ("Why do you want to work here?", "Describe your experience with Python").
-4. **Instant Application Save & Tracking**:
+4. **Shared Backend API (Single Source of Truth)**:
+   - Extension uses the existing CareerPilot FastAPI endpoints (`/matches/analyze`, `/applications`, `/resume-studio`) and cookie-based sessions so anything done in the extension updates the web dashboard in real time.
+5. **Instant Application Save & Tracking**:
    - 1-click "Save to CareerPilot" directly from the side panel.
 
 ---
