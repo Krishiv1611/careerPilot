@@ -7,7 +7,6 @@ sys.path.insert(0, str(BACKEND_ROOT))
 
 from services.job_reality_service import audit_job_reality
 from services.recruiter_xray_service import analyze_recruiter_xray
-from services.bullet_enhancer_service import enhance_bullet_star
 from services.interview_stress_test_service import generate_resume_defense_matrix
 from services.application_autopsy_service import run_application_autopsy
 from services.cover_letter_service import generate_tailored_cover_letter
