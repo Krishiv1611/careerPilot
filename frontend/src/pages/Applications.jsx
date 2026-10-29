@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
+  ArrowRight,
   ArrowUpRight,
   BriefcaseBusiness,
   CalendarDays,
@@ -10,6 +12,8 @@ import {
   List,
   Loader2,
   Send,
+  ShieldAlert,
+  Sparkles,
   Trash2,
   X,
 } from 'lucide-react';
@@ -20,6 +24,8 @@ import {
   generateOutreach,
   getAllApplications,
   getAllJobs,
+  getApplicationAutopsy,
+  getResumeDefenseStressTest,
   updateApplicationDetails,
   updateApplicationStatus,
 } from '../services/api';
@@ -41,8 +47,10 @@ const Applications = () => {
   const [error, setError] = useState('');
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
-  // Outreach modal state
+  // Outreach and analysis modals
   const [outreachTarget, setOutreachTarget] = useState(null);
+  const [stressTestTarget, setStressTestTarget] = useState(null);
+  const [autopsyTarget, setAutopsyTarget] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -218,6 +226,26 @@ const Applications = () => {
                             <Send className="h-3 w-3 text-slate-500" /> Outreach
                           </button>
 
+                          <button
+                            type="button"
+                            onClick={() => setStressTestTarget({ job, application: app })}
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-100"
+                            title="Stress-Test My Resume against technical interrogation"
+                          >
+                            🛡️ Stress-Test
+                          </button>
+
+                          {app.status === 'Rejected' && (
+                            <button
+                              type="button"
+                              onClick={() => setAutopsyTarget({ job, application: app })}
+                              className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100"
+                              title="Run application autopsy to diagnose fatal blockers"
+                            >
+                              🔬 Run Autopsy
+                            </button>
+                          )}
+
                           {app.resume_version_id && (
                             <button
                               type="button"
@@ -294,6 +322,8 @@ const Applications = () => {
             onDelete={removeApplication}
             onSavePlan={saveApplicationPlan}
             onOpenOutreach={(job, app) => setOutreachTarget({ job, application: app })}
+            onOpenStressTest={(job, app) => setStressTestTarget({ job, application: app })}
+            onOpenAutopsy={(job, app) => setAutopsyTarget({ job, application: app })}
             onDownloadResume={handleDownloadSubmittedResume}
           />
         </div>
@@ -304,6 +334,22 @@ const Applications = () => {
           job={outreachTarget.job}
           application={outreachTarget.application}
           onClose={() => setOutreachTarget(null)}
+        />
+      )}
+
+      {stressTestTarget && (
+        <StressTestModal
+          job={stressTestTarget.job}
+          application={stressTestTarget.application}
+          onClose={() => setStressTestTarget(null)}
+        />
+      )}
+
+      {autopsyTarget && (
+        <AutopsyDrawer
+          job={autopsyTarget.job}
+          application={autopsyTarget.application}
+          onClose={() => setAutopsyTarget(null)}
         />
       )}
     </div>
@@ -321,6 +367,8 @@ const ApplicationDetail = ({
   onDelete,
   onSavePlan,
   onOpenOutreach,
+  onOpenStressTest,
+  onOpenAutopsy,
   onDownloadResume,
 }) => {
   if (!application) return null;
@@ -343,6 +391,26 @@ const ApplicationDetail = ({
           >
             <Send className="h-3.5 w-3.5" /> Recruiter Outreach
           </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenStressTest(job, application)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+            title="Stress-Test My Resume against technical interrogation"
+          >
+            🛡️ Stress-Test
+          </button>
+
+          {application.status === 'Rejected' && (
+            <button
+              type="button"
+              onClick={() => onOpenAutopsy(job, application)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
+              title="Run application autopsy to diagnose fatal blockers"
+            >
+              🔬 Run Autopsy
+            </button>
+          )}
 
           {application.resume_version_id && (
             <button
@@ -566,6 +634,294 @@ const OutreachModal = ({ job, onClose }) => {
                 {copiedKey === 'followup' ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5 text-slate-500" />}
                 {copiedKey === 'followup' ? 'Copied to Clipboard' : 'Copy Follow-up'}
               </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
+const StressTestModal = ({ job, application, onClose }) => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [matrix, setMatrix] = useState(null);
+  const [copiedIndex, setCopiedIndex] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    const fetchMatrix = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const data = await getResumeDefenseStressTest(application.id);
+        if (active) setMatrix(data);
+      } catch (err) {
+        if (active) setError(err.response?.data?.detail || 'Failed to generate resume defense stress test.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    fetchMatrix();
+    return () => {
+      active = false;
+    };
+  }, [application.id]);
+
+  const copyBlueprint = (text, index) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-900 text-lg">
+              🛡️
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-black text-slate-950">Resume Defense Stress-Tester</h2>
+                {matrix?.defense_confidence_score !== undefined && (
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                    matrix.defense_confidence_score >= 80
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {matrix.defense_confidence_score}% Confidence
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 font-medium">
+                {job.title || 'Role'} · {job.company || matrix?.company || 'Target Company'} · <span className="font-semibold text-slate-700">{matrix?.interrogation_level || 'Aggressive Technical Screen'}</span>
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="grid min-h-[35vh] place-items-center">
+            <div className="text-center">
+              <Loader2 className="mx-auto h-7 w-7 animate-spin text-slate-600" />
+              <p className="mt-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+                Stress-testing resume claims against technical hiring bar...
+              </p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            {error}
+          </div>
+        ) : matrix && (
+          <div className="mt-5 space-y-5">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs text-slate-600 leading-relaxed">
+              <p className="font-semibold text-slate-800">Technical Drill-Down Interrogation</p>
+              <p className="mt-0.5">
+                Senior engineering interviewers probe every bullet point on your resume. Review these hard drill-down questions and candidate defense blueprints grounded in concrete code and system architecture.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {(matrix.drill_down_questions || []).map((item, index) => (
+                <div key={index} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-mono font-bold text-slate-700 uppercase">
+                      Claim {index + 1}
+                    </span>
+                    <span className="text-[11px] font-semibold text-slate-400">
+                      Grounded Interrogation
+                    </span>
+                  </div>
+
+                  <blockquote className="mt-2 rounded-lg border-l-2 border-slate-400 bg-slate-50/70 py-1.5 px-3 text-xs italic text-slate-700">
+                    &ldquo;{item.claim}&rdquo;
+                  </blockquote>
+
+                  <div className="mt-3">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                      Interviewer Drill-Down Question
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-slate-950 leading-snug">
+                      {item.question}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 rounded-lg border border-slate-100 bg-[#f8fafc] p-2.5 text-xs text-slate-600">
+                    <span className="font-bold text-slate-700">What interviewer tests: </span>
+                    {item.what_interviewer_tests}
+                  </div>
+
+                  <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-slate-600" />
+                        Candidate Defense Blueprint
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyBlueprint(item.candidate_defense_blueprint, index)}
+                        className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-100 transition"
+                      >
+                        {copiedIndex === index ? (
+                          <>
+                            <Check className="h-3 w-3 text-emerald-600" /> Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3 text-slate-500" /> Copy Defense
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p className="mt-2 text-xs leading-relaxed text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100 font-sans">
+                      {item.candidate_defense_blueprint}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
+const AutopsyDrawer = ({ job, application, onClose }) => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [autopsy, setAutopsy] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    const fetchAutopsy = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const data = await getApplicationAutopsy(application.id);
+        if (active) setAutopsy(data);
+      } catch (err) {
+        if (active) setError(err.response?.data?.detail || 'Failed to run application autopsy.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    fetchAutopsy();
+    return () => {
+      active = false;
+    };
+  }, [application.id]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-rose-100 text-lg text-rose-700">
+              🔬
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-black text-slate-950">Application Autopsy & Gap Recovery</h2>
+                <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-800">
+                  Post-Mortem
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium">
+                {job.title || 'Role'} at {job.company || 'Company'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="grid min-h-[35vh] place-items-center">
+            <div className="text-center">
+              <Loader2 className="mx-auto h-7 w-7 animate-spin text-rose-600" />
+              <p className="mt-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+                Diagnosing rejection cause and fatal blockers...
+              </p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            {error}
+          </div>
+        ) : autopsy && (
+          <div className="mt-5 space-y-5">
+            {/* Fatal Blocker */}
+            <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4">
+              <div className="flex items-center gap-2 text-rose-800">
+                <ShieldAlert className="h-5 w-5" />
+                <h3 className="text-sm font-bold uppercase tracking-wider">Fatal Blocker Identified</h3>
+              </div>
+              <p className="mt-2 text-sm font-bold text-rose-950">
+                {autopsy.fatal_blocker}
+              </p>
+              <p className="mt-1 text-xs text-rose-700 leading-relaxed">
+                {autopsy.why_it_disqualified}
+              </p>
+            </div>
+
+            {/* Recommended Growth Blueprint */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  48-Hour Recovery Bridge
+                </span>
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-800">
+                  ⏱️ {autopsy.recovery_time_hours || 48}h Recovery Cycle
+                </span>
+              </div>
+
+              <h4 className="mt-3 text-base font-black text-slate-950">
+                {autopsy.recommended_blueprint?.title || 'Targeted Growth Blueprint'}
+              </h4>
+
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Actionable Fix Steps:
+                </p>
+                <div className="space-y-1.5 pl-1">
+                  {(autopsy.actionable_fix_steps || []).map((step, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-xs text-slate-700">
+                      <span className="font-bold text-slate-900">•</span>
+                      <span>{step}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-5 pt-4 border-t border-slate-100">
+                <Link
+                  to="/growth"
+                  onClick={onClose}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition"
+                >
+                  Bridge to Growth Studio <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
             </div>
           </div>
         )}

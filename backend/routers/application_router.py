@@ -7,6 +7,7 @@ from models.application_model import Application
 from models.database import get_db
 from models.job_model import Job
 from models.resume_model import Resume
+from models.resume_version_model import ResumeVersion
 from models.schemas import (
     ApplicationCreateModel,
     ApplicationDetailsUpdateModel,
@@ -15,7 +16,9 @@ from models.schemas import (
 )
 from models.user_model import User
 from models.user_job_model import UserJob
+from services.application_autopsy_service import run_application_autopsy
 from services.application_service import build_new_application, change_status
+from services.interview_stress_test_service import generate_resume_defense_matrix
 from services.user_job_service import find_user_job, set_user_job_state
 from utils.auth import get_current_user
 
@@ -151,6 +154,86 @@ def delete_application(
     db.delete(application)
     db.commit()
     return {"message": "Application deleted successfully"}
+
+
+@router.post("/{application_id}/stress-test")
+def stress_test_application(
+    application_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    application = _get_owned_application(db, application_id, current_user.id)
+    ctx = _resolve_application_context(db, application, current_user.id)
+    return generate_resume_defense_matrix(
+        resume_text=ctx["resume_text"],
+        job_description=ctx["job_description"],
+        company=ctx["company"],
+    )
+
+
+@router.post("/{application_id}/autopsy")
+def autopsy_application(
+    application_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    application = _get_owned_application(db, application_id, current_user.id)
+    ctx = _resolve_application_context(db, application, current_user.id)
+    return run_application_autopsy(
+        resume_text=ctx["resume_text"],
+        job_description=ctx["job_description"],
+        rejection_feedback=application.notes or "",
+    )
+
+
+def _resolve_application_context(db: Session, application: Application, user_id: int):
+    resume_text = ""
+    if application.resume_version_id:
+        version = db.query(ResumeVersion).filter(
+            ResumeVersion.id == application.resume_version_id,
+            ResumeVersion.user_id == user_id,
+        ).first()
+        if version and version.content:
+            resume_text = version.content
+        elif version and version.base_content:
+            resume_text = version.base_content
+
+    if not resume_text and application.resume_id:
+        resume = db.query(Resume).filter(
+            Resume.id == application.resume_id,
+            Resume.user_id == user_id,
+        ).first()
+        if resume and resume.raw_text:
+            resume_text = resume.raw_text
+
+    if not resume_text:
+        latest_resume = db.query(Resume).filter(
+            Resume.user_id == user_id,
+        ).order_by(Resume.created_at.desc()).first()
+        if latest_resume and latest_resume.raw_text:
+            resume_text = latest_resume.raw_text
+
+    company = ""
+    job_description = ""
+    if application.job_id:
+        job = db.query(Job).filter(Job.id == application.job_id).first()
+        if job:
+            company = job.company or ""
+            job_description = job.description or ""
+
+    if not job_description and application.resume_version_id:
+        version = db.query(ResumeVersion).filter(
+            ResumeVersion.id == application.resume_version_id,
+            ResumeVersion.user_id == user_id,
+        ).first()
+        if version and version.job_description:
+            job_description = version.job_description
+
+    return {
+        "resume_text": resume_text,
+        "job_description": job_description,
+        "company": company,
+    }
 
 
 def _get_owned_application(db, application_id, user_id):

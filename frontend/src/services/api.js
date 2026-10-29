@@ -90,6 +90,16 @@ export const deleteApplication = async (appId) => {
     return response.data;
 };
 
+export const getResumeDefenseStressTest = async (applicationId) => {
+    const response = await api.post(`/applications/${applicationId}/stress-test`);
+    return response.data;
+};
+
+export const getApplicationAutopsy = async (applicationId) => {
+    const response = await api.post(`/applications/${applicationId}/autopsy`);
+    return response.data;
+};
+
 export const analyzeResumeForJob = async (payload) => {
     const response = await api.post('/resume-studio/analyze', payload);
     return response.data;
