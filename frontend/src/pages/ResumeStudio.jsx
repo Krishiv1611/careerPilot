@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Download, FileClock, Github, Loader2, Send, Sparkles, TriangleAlert, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 
@@ -16,6 +16,9 @@ import {
   getResumeVersions,
   promptResumeVersion,
   reviewResumeVersion,
+  scoreResumeLive,
+  enhanceBullet,
+  exportPdfDirect,
 } from '../services/api';
 import { buildReviewPayload, reviewProgress } from '../app/resume-proposals';
 import { buildEvidenceApprovalPayload, initialEvidenceDraft } from '../app/github-evidence';
@@ -41,6 +44,12 @@ const ResumeStudio = () => {
   const [selectedRepositories, setSelectedRepositories] = useState([]);
   const [githubProjects, setGithubProjects] = useState([]);
   const [githubWorking, setGithubWorking] = useState(false);
+  const [editorContent, setEditorContent] = useState('');
+  const [liveAtsDiagnostic, setLiveAtsDiagnostic] = useState(null);
+  const [isScoringLive, setIsScoringLive] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [enhanceFeedback, setEnhanceFeedback] = useState('');
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -91,6 +100,40 @@ const ResumeStudio = () => {
     setChangeDecisions(decisions);
   }, [activeVersion?.id, activeVersion?.changes]);
 
+  useEffect(() => {
+    if (activeVersion?.content) {
+      setEditorContent(activeVersion.content);
+      if (activeVersion.ats_diagnostic) {
+        setLiveAtsDiagnostic(activeVersion.ats_diagnostic);
+      }
+    }
+  }, [activeVersion?.id, activeVersion?.content, activeVersion?.ats_diagnostic]);
+
+  useEffect(() => {
+    if (!editorContent || !editorContent.trim()) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        setIsScoringLive(true);
+        const effectiveJobDesc = jobId
+          ? (jobs.find((job) => job.id === jobId)?.description || jobDescription || activeVersion?.job_description || '')
+          : (jobDescription || activeVersion?.job_description || '');
+
+        const diagnostic = await scoreResumeLive({
+          resume_text: editorContent,
+          job_description: effectiveJobDesc,
+        });
+        setLiveAtsDiagnostic(diagnostic);
+      } catch {
+        // Keep previous diagnostic on transient error
+      } finally {
+        setIsScoringLive(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [editorContent, jobDescription, jobId, jobs, activeVersion?.job_description]);
+
   const runAnalysis = async () => {
     if (!resumeId || (!jobId && !jobDescription.trim())) return;
     setWorking(true);
@@ -103,6 +146,10 @@ const ResumeStudio = () => {
         job_description: jobDescription.trim() || null,
       });
       setActiveVersion(version);
+      setEditorContent(version.content);
+      if (version.ats_diagnostic) {
+        setLiveAtsDiagnostic(version.ats_diagnostic);
+      }
       setVersions((current) => [version, ...current]);
     } catch (analysisError) {
       setError(analysisError.response?.data?.detail || 'The resume could not be analyzed.');
@@ -119,6 +166,10 @@ const ResumeStudio = () => {
     try {
       const version = await promptResumeVersion(activeVersion.id, instruction.trim());
       setActiveVersion(version);
+      setEditorContent(version.content);
+      if (version.ats_diagnostic) {
+        setLiveAtsDiagnostic(version.ats_diagnostic);
+      }
       setVersions((current) => [version, ...current]);
       setInstruction('');
     } catch (promptError) {
@@ -141,6 +192,85 @@ const ResumeStudio = () => {
       URL.revokeObjectURL(url);
     } catch (downloadError) {
       setError(downloadError.response?.data?.detail || 'The approved resume could not be downloaded.');
+    }
+  };
+
+  const handleDirectPdfDownload = async () => {
+    const textToExport = editorContent || activeVersion?.content || '';
+    if (!textToExport.trim()) return;
+
+    setIsDownloadingPdf(true);
+    setError('');
+    try {
+      const firstLine = textToExport.trim().split('\n')[0]?.trim() || 'Candidate';
+      const candidateName = firstLine.replace(/[^a-zA-Z0-9\s_-]/g, '').trim() || 'Candidate';
+      const fileBlob = await exportPdfDirect({
+        resume_text: textToExport,
+        candidate_name: candidateName,
+      });
+      const url = URL.createObjectURL(fileBlob);
+      const link = window.document.createElement('a');
+      const safeName = candidateName.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/^_+|_+$/g, '') || 'Candidate';
+      link.href = url;
+      link.download = `${safeName}_ATS_Resume.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (downloadError) {
+      setError(downloadError.response?.data?.detail || 'The Harvard ATS PDF could not be generated.');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleEnhanceBullet = async (textarea) => {
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = editorContent;
+
+    let targetBullet = '';
+    let replaceStart = start;
+    let replaceEnd = end;
+
+    if (start !== end) {
+      targetBullet = text.substring(start, end).trim();
+    } else {
+      const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+      let lineEnd = text.indexOf('\n', start);
+      if (lineEnd === -1) lineEnd = text.length;
+      targetBullet = text.substring(lineStart, lineEnd).trim();
+      replaceStart = lineStart;
+      replaceEnd = lineEnd;
+    }
+
+    if (!targetBullet) {
+      setEnhanceFeedback('Place cursor on a bullet line or highlight text to enhance.');
+      setTimeout(() => setEnhanceFeedback(''), 4000);
+      return;
+    }
+
+    setIsEnhancing(true);
+    setEnhanceFeedback('');
+    try {
+      const targetRole = jobs.find((job) => job.id === jobId)?.title || '';
+      const result = await enhanceBullet({ bullet: targetBullet, target_role: targetRole });
+      if (result?.enhanced_bullet) {
+        const lineContent = text.substring(replaceStart, replaceEnd);
+        const prefixMatch = lineContent.match(/^(\s*[-*•]\s*)/);
+        const prefix = prefixMatch ? prefixMatch[1] : '';
+        const cleanEnhanced = result.enhanced_bullet.replace(/^[-*•]\s*/, '');
+        const replacement = prefix ? `${prefix}${cleanEnhanced}` : result.enhanced_bullet;
+
+        const updated = text.substring(0, replaceStart) + replacement + text.substring(replaceEnd);
+        setEditorContent(updated);
+        setEnhanceFeedback(`Enhanced with STAR: "${result.action_verb}" action verb applied.`);
+        setTimeout(() => setEnhanceFeedback(''), 4000);
+      }
+    } catch (err) {
+      setEnhanceFeedback(err.response?.data?.detail || 'Could not enhance bullet with STAR.');
+      setTimeout(() => setEnhanceFeedback(''), 4000);
+    } finally {
+      setIsEnhancing(false);
     }
   };
 
@@ -255,11 +385,30 @@ const ResumeStudio = () => {
           <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-slate-950 sm:text-4xl">Resume Studio</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Compare your current resume with a real JD, review supported evidence, and save every approved edit as a new version.</p>
         </div>
-        {activeVersion && (
-          <button type="button" onClick={downloadVersion} disabled={activeVersion.approval_status !== 'approved'} className="inline-flex items-center justify-center gap-2 self-start rounded-lg bg-[#36454f] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#202a30] disabled:cursor-not-allowed disabled:bg-slate-300">
-            <Download className="h-4 w-4" /> {activeVersion.approval_status === 'approved' ? (activeVersion.template_mode === 'same_docx_template' ? 'Download approved DOCX' : 'Download approved PDF') : 'Review changes to download'}
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2 self-start">
+          {editorContent && (
+            <button
+              type="button"
+              onClick={handleDirectPdfDownload}
+              disabled={isDownloadingPdf}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#36454f] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#202a30] disabled:bg-slate-300"
+            >
+              {isDownloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Download Harvard ATS PDF
+            </button>
+          )}
+          {activeVersion && (
+            <button
+              type="button"
+              onClick={downloadVersion}
+              disabled={activeVersion.approval_status !== 'approved'}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            >
+              <Download className="h-4 w-4" />
+              {activeVersion.approval_status === 'approved' ? (activeVersion.template_mode === 'same_docx_template' ? 'Download approved DOCX' : 'Download approved PDF') : 'Review changes to download'}
+            </button>
+          )}
+        </div>
       </header>
 
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
@@ -303,8 +452,26 @@ const ResumeStudio = () => {
       ) : (
         <div className="space-y-5">
           <div className="grid overflow-hidden rounded-xl border border-slate-200 bg-white xl:grid-cols-[0.72fr_1.25fr_0.78fr]">
-            <RequirementsPanel version={activeVersion} />
-            <ResumeCanvas version={activeVersion} instruction={instruction} setInstruction={setInstruction} working={working} onPrompt={applyPrompt} />
+            <RequirementsPanel
+              version={activeVersion}
+              atsDiagnostic={liveAtsDiagnostic}
+              isScoringLive={isScoringLive}
+            />
+            <ResumeCanvas
+              version={activeVersion}
+              editorContent={editorContent}
+              setEditorContent={setEditorContent}
+              instruction={instruction}
+              setInstruction={setInstruction}
+              working={working}
+              onPrompt={applyPrompt}
+              onEnhanceBullet={handleEnhanceBullet}
+              isEnhancing={isEnhancing}
+              enhanceFeedback={enhanceFeedback}
+              onDirectPdfDownload={handleDirectPdfDownload}
+              isDownloadingPdf={isDownloadingPdf}
+              isScoringLive={isScoringLive}
+            />
             <SuggestionsPanel
               version={activeVersion}
               githubStatus={githubStatus}
@@ -346,8 +513,8 @@ const ResumeStudio = () => {
 };
 
 
-const RequirementsPanel = ({ version }) => {
-  const ats = version.ats_diagnostic || {
+const RequirementsPanel = ({ version, atsDiagnostic, isScoringLive }) => {
+  const ats = atsDiagnostic || version?.ats_diagnostic || {
     overall_score: version.ats_score ?? 75,
     grade: (version.ats_score ?? 75) >= 80 ? 'A' : (version.ats_score ?? 75) >= 65 ? 'B' : 'Needs Work',
     breakdown: {
@@ -371,7 +538,12 @@ const RequirementsPanel = ({ version }) => {
     <section className="border-b border-slate-200 p-5 xl:border-b-0 xl:border-r">
       <div className="flex items-center justify-between border-b border-slate-100 pb-4">
         <div>
-          <h2 className="text-sm font-bold text-slate-950">100-Pt ATS Scorecard</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-950">100-Pt ATS Scorecard</h2>
+            {isScoringLive && (
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-ping" title="Live scoring..." />
+            )}
+          </div>
           <p className="text-[11px] text-slate-500">Deterministic 4-pillar parsing rubric</p>
         </div>
         <div className="flex items-center gap-2">
@@ -443,20 +615,20 @@ const RequirementsPanel = ({ version }) => {
         <div className="mt-3">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Supported</p>
           <div className="mt-2 space-y-2">
-            {version.matched_skills.map((skill) => (
+            {(version?.matched_skills || []).map((skill) => (
               <div key={skill} className="rounded-lg border border-emerald-100 bg-emerald-50 p-2.5">
                 <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-800"><Check className="h-3.5 w-3.5" /> {skill}</p>
-                <p className="mt-1 line-clamp-2 text-xs leading-5 text-emerald-900/70">{version.evidence_map[skill]?.[0] || 'Found in resume text'}</p>
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-emerald-900/70">{(version?.evidence_map?.[skill] || [])?.[0] || 'Found in resume text'}</p>
               </div>
             ))}
-            {version.matched_skills.length === 0 && <p className="text-xs leading-5 text-slate-500">No structured skill evidence matched this JD.</p>}
+            {(version?.matched_skills?.length || 0) === 0 && <p className="text-xs leading-5 text-slate-500">No structured skill evidence matched this JD.</p>}
           </div>
         </div>
         <div className="mt-5">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-700">Missing Gaps</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {version.missing_skills.map((skill) => <span key={skill} className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800">{skill}</span>)}
-            {version.missing_skills.length === 0 && <p className="text-xs text-slate-500">No vocabulary gaps found.</p>}
+            {(version?.missing_skills || []).map((skill) => <span key={skill} className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800">{skill}</span>)}
+            {(version?.missing_skills?.length || 0) === 0 && <p className="text-xs text-slate-500">No vocabulary gaps found.</p>}
           </div>
         </div>
       </div>
@@ -465,20 +637,116 @@ const RequirementsPanel = ({ version }) => {
 };
 
 
-const ResumeCanvas = ({ version, instruction, setInstruction, working, onPrompt }) => (
-  <section className="border-b border-slate-200 p-5 sm:p-7 xl:border-b-0 xl:border-r">
-    <div className="flex items-start justify-between gap-3">
-      <div><h2 className="text-sm font-bold text-slate-950">Tailored draft</h2><p className="mt-1 text-xs text-slate-500">No new claims were inserted.</p></div>
-      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">{version.template_mode === 'same_docx_template' ? 'Original DOCX template' : 'Clean PDF'}</span>
-    </div>
-    <div className="mt-5 max-h-[42rem] overflow-y-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-[#fffefa] p-5 text-sm leading-7 text-slate-700">{version.content}</div>
-    <div className="mt-4 flex gap-2">
-      <input value={instruction} onChange={(event) => setInstruction(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && onPrompt()} placeholder="Try: Emphasize Python" className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[#708090]" />
-      <button type="button" onClick={onPrompt} disabled={!instruction.trim() || working} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#36454f] text-white disabled:bg-slate-300" aria-label="Apply prompt"><Send className="h-4 w-4" /></button>
-    </div>
-    <p className="mt-2 text-xs leading-5 text-slate-500">Try: emphasize an existing skill, remove a line, tailor to this JD, or make the resume concise.</p>
-  </section>
-);
+const ResumeCanvas = ({
+  version,
+  editorContent,
+  setEditorContent,
+  instruction,
+  setInstruction,
+  working,
+  onPrompt,
+  onEnhanceBullet,
+  isEnhancing,
+  enhanceFeedback,
+  onDirectPdfDownload,
+  isDownloadingPdf,
+  isScoringLive,
+}) => {
+  const textareaRef = useRef(null);
+
+  const triggerEnhance = () => {
+    onEnhanceBullet(textareaRef.current);
+  };
+
+  return (
+    <section className="border-b border-slate-200 p-5 sm:p-7 xl:border-b-0 xl:border-r">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-950">Live Resume Editor</h2>
+            {version?.template_mode && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                {version.template_mode === 'same_docx_template' ? 'DOCX template' : 'Clean PDF'}
+              </span>
+            )}
+            {isScoringLive ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Scoring live…
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                ATS Synced
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-slate-500">Edit directly below. 250ms debounced live ATS evaluation.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={triggerEnhance}
+            disabled={isEnhancing}
+            title="Select bullet or place cursor on line to enhance with STAR"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+          >
+            {isEnhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-amber-600" />}
+            Enhance with STAR
+          </button>
+          <button
+            type="button"
+            onClick={onDirectPdfDownload}
+            disabled={isDownloadingPdf}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#36454f] px-2.5 py-1.5 text-xs font-bold text-white hover:bg-[#202a30] disabled:bg-slate-300"
+          >
+            {isDownloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            Download Harvard ATS PDF
+          </button>
+        </div>
+      </div>
+
+      {enhanceFeedback && (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-xs font-medium text-amber-900">
+          {enhanceFeedback}
+        </div>
+      )}
+
+      <div className="mt-3">
+        <textarea
+          ref={textareaRef}
+          value={editorContent}
+          onChange={(event) => setEditorContent(event.target.value)}
+          rows={22}
+          placeholder="Resume text..."
+          className="w-full rounded-xl border border-slate-200 bg-[#fffefa] p-4 font-mono text-xs sm:text-sm leading-6 text-slate-800 outline-none transition focus:border-[#36454f] focus:ring-1 focus:ring-[#36454f]"
+          spellCheck="false"
+        />
+      </div>
+
+      <div className="mt-4 flex gap-2">
+        <input
+          value={instruction}
+          onChange={(event) => setInstruction(event.target.value)}
+          onKeyDown={(event) => event.key === 'Enter' && onPrompt()}
+          placeholder="Try: Emphasize Python"
+          className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[#708090]"
+        />
+        <button
+          type="button"
+          onClick={onPrompt}
+          disabled={!instruction.trim() || working}
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#36454f] text-white disabled:bg-slate-300"
+          aria-label="Apply prompt"
+        >
+          <Send className="h-4 w-4" />
+        </button>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-slate-500">
+        Highlight or click any bullet line to transform with STAR methodology, or type an AI tailoring prompt above.
+      </p>
+    </section>
+  );
+};
 
 
 const ChangeReview = ({ version, decisions, working, onDecision, onApprove }) => {

@@ -3,6 +3,7 @@ from typing import Literal
 from uuid import uuid4
 from io import BytesIO
 from pathlib import Path
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -20,6 +21,7 @@ from models.resume_version_model import ResumeVersion
 from models.user_model import User
 from services.ats_pdf_service import generate_ats_pdf
 from services.ats_scorer_service import calculate_ats_score
+from services.bullet_enhancer_service import enhance_bullet_star
 from services.docx_resume_service import create_tailored_docx
 from services.resume_diff_service import apply_change_decisions, build_line_changes
 from services.user_job_service import find_user_job
@@ -27,6 +29,21 @@ from utils.auth import get_current_user
 
 
 router = APIRouter(prefix="/resume-studio", tags=["Resume Studio"])
+
+
+class ScoreLiveRequest(BaseModel):
+    resume_text: str = ""
+    job_description: str = ""
+
+
+class EnhanceBulletRequest(BaseModel):
+    bullet: str = ""
+    target_role: str = ""
+
+
+class ExportPdfDirectRequest(BaseModel):
+    resume_text: str = ""
+    candidate_name: str = "Candidate"
 
 
 class ResumeAnalysisRequest(BaseModel):
@@ -46,6 +63,28 @@ class ResumeChangeDecision(BaseModel):
 
 class ResumeReviewRequest(BaseModel):
     decisions: list[ResumeChangeDecision]
+
+
+@router.post("/score-live")
+def score_resume_live(payload: ScoreLiveRequest):
+    return calculate_ats_score(payload.resume_text, payload.job_description)
+
+
+@router.post("/enhance-bullet")
+def enhance_bullet(payload: EnhanceBulletRequest):
+    return enhance_bullet_star(payload.bullet, payload.target_role)
+
+
+@router.post("/export-pdf-direct")
+def export_pdf_direct(payload: ExportPdfDirectRequest):
+    pdf_buffer = generate_ats_pdf(payload.resume_text)
+    candidate_name = (payload.candidate_name or "").strip() or "Candidate"
+    safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", candidate_name).strip("_") or "Candidate"
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={safe_name}_ATS_Resume.pdf"},
+    )
 
 
 @router.post("/analyze")

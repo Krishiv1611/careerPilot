@@ -121,6 +121,32 @@ export const downloadResumeVersion = async (versionId) => {
     return response.data;
 };
 
+export const scoreResumeLive = async ({ resume_text, job_description }) => {
+    const response = await api.post('/resume-studio/score-live', {
+        resume_text,
+        job_description,
+    });
+    return response.data;
+};
+
+export const enhanceBullet = async ({ bullet, target_role }) => {
+    const response = await api.post('/resume-studio/enhance-bullet', {
+        bullet,
+        target_role,
+    });
+    return response.data;
+};
+
+export const exportPdfDirect = async ({ resume_text, candidate_name }) => {
+    const response = await api.post('/resume-studio/export-pdf-direct', {
+        resume_text,
+        candidate_name,
+    }, {
+        responseType: 'blob',
+    });
+    return response.data;
+};
+
 export const getGitHubStatus = async () => {
     const response = await api.get('/github/status');
     return response.data;
