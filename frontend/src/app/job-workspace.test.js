@@ -112,3 +112,30 @@ test('adding a custom job with health audit prepends to saved jobs', () => {
   assert.equal(result[0].job_health.health_verdict, 'High Quality');
 });
 
+
+test('filterJobsByHealth filters roles according to health threshold', () => {
+  const { filterJobsByHealth } = module;
+  assert.equal(typeof filterJobsByHealth, 'function');
+
+  const jobs = [
+    { id: '1', title: 'Healthy Role', job_health: { role_health_score: 85 } },
+    { id: '2', title: 'Borderline Healthy Role', job_health: { role_health_score: 70 } },
+    { id: '3', title: 'Caution Role', job_health: { role_health_score: 65 } },
+    { id: '4', title: 'High Risk Role', job_health: { role_health_score: 30 } },
+    { id: '5', title: 'Unscored Role' },
+  ];
+
+  assert.equal(filterJobsByHealth(jobs, 'all').length, 5);
+
+  const healthy = filterJobsByHealth(jobs, 'healthy');
+  assert.equal(healthy.length, 3); // 85, 70, and unscored (default 100)
+  assert.deepEqual(healthy.map((j) => j.id), ['1', '2', '5']);
+
+  const caution = filterJobsByHealth(jobs, 'caution');
+  assert.equal(caution.length, 2); // 65, 30
+  assert.deepEqual(caution.map((j) => j.id), ['3', '4']);
+
+  assert.deepEqual(filterJobsByHealth(null), []);
+});
+
+

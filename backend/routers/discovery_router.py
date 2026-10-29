@@ -9,6 +9,7 @@ from agents.career_supervisor import run_career_workflow
 from models.database import get_db
 from models.job_model import Job
 from models.user_model import User
+from services.job_reality_service import audit_job_reality
 from services.user_job_service import set_user_job_state
 from utils.auth import get_current_user
 
@@ -85,6 +86,11 @@ def _save_jobs(db, jobs, user_id):
 
 
 def _job_response(record, discovery_data, user_state):
+    health = audit_job_reality(
+        record.title or "",
+        record.description or "",
+        company=record.company or "",
+    )
     return {
         "id": record.id,
         "title": record.title,
@@ -101,4 +107,5 @@ def _job_response(record, discovery_data, user_state):
         "verification_status": record.verification_status,
         "fetched_at": record.fetched_at,
         "user_state": user_state,
+        "job_health": health,
     }

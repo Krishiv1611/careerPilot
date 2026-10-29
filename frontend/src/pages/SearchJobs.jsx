@@ -25,7 +25,7 @@ import api, {
   getCandidateProfile,
   saveJob,
 } from '../services/api';
-import { applyJobState, applySavedJobState } from '../app/job-workspace';
+import { applyJobState, applySavedJobState, filterJobsByHealth } from '../app/job-workspace';
 
 
 const getSavedJobs = async () => {
@@ -44,6 +44,7 @@ const SearchJobs = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [savedJobs, setSavedJobs] = useState([]);
   const [activeTab, setActiveTab] = useState('search'); // 'search' | 'saved'
+  const [healthFilter, setHealthFilter] = useState('all'); // 'all' | 'healthy' | 'caution'
   const [selectedJob, setSelectedJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
@@ -121,7 +122,8 @@ const SearchJobs = () => {
       const result = await discoverJobs(form);
       setSearchResults(result.jobs);
       setActiveTab('search');
-      setSelectedJob(result.jobs[0] || null);
+      const filtered = filterJobsByHealth(result.jobs, healthFilter);
+      setSelectedJob(filtered[0] || null);
       setWarnings(result.warnings || []);
 
       if (result.jobs.length === 0) {
@@ -151,6 +153,7 @@ const SearchJobs = () => {
 
       setSearchResults((prev) => [createdJob, ...prev]);
       setSavedJobs((prev) => applySavedJobState(prev, createdJob));
+      setHealthFilter('all');
       setSelectedJob(createdJob);
       setIsPasteModalOpen(false);
       setCustomJobForm({
@@ -176,8 +179,18 @@ const SearchJobs = () => {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    const targetList = tab === 'saved' ? savedJobs : searchResults;
+    const targetBase = tab === 'saved' ? savedJobs : searchResults;
+    const targetList = filterJobsByHealth(targetBase, healthFilter);
     setSelectedJob(targetList[0] || null);
+  };
+
+  const handleHealthFilterChange = (filter) => {
+    setHealthFilter(filter);
+    const targetBase = activeTab === 'saved' ? savedJobs : searchResults;
+    const targetList = filterJobsByHealth(targetBase, filter);
+    if (!targetList.some((j) => (j.id || j.url) === (selectedJob?.id || selectedJob?.url))) {
+      setSelectedJob(targetList[0] || null);
+    }
   };
 
   const addToApplications = async (job) => {
@@ -221,7 +234,9 @@ const SearchJobs = () => {
       setSavedJobs(nextSaved);
 
       if (activeTab === 'saved' && isSaved) {
-        setSelectedJob(nextSaved[0] || null);
+        const nextBase = nextSaved;
+        const nextFiltered = filterJobsByHealth(nextBase, healthFilter);
+        setSelectedJob(nextFiltered[0] || null);
       } else {
         setSelectedJob(updated);
       }
@@ -250,7 +265,8 @@ const SearchJobs = () => {
       setSearchResults(nextSearch);
       setSavedJobs(nextSaved);
 
-      const currentList = activeTab === 'saved' ? nextSaved : nextSearch;
+      const currentBase = activeTab === 'saved' ? nextSaved : nextSearch;
+      const currentList = filterJobsByHealth(currentBase, healthFilter);
       setSelectedJob(currentList[0] || null);
 
       setMessage(`${job.title} was removed from this workspace.`);
@@ -261,7 +277,11 @@ const SearchJobs = () => {
     }
   };
 
-  const displayedJobs = activeTab === 'saved' ? savedJobs : searchResults;
+  const baseJobs = activeTab === 'saved' ? savedJobs : searchResults;
+  const allCount = baseJobs.length;
+  const healthyCount = filterJobsByHealth(baseJobs, 'healthy').length;
+  const cautionCount = filterJobsByHealth(baseJobs, 'caution').length;
+  const displayedJobs = filterJobsByHealth(baseJobs, healthFilter);
 
   return (
     <div className="space-y-7">
@@ -383,7 +403,7 @@ const SearchJobs = () => {
 
       {loading ? (
         <div className="grid min-h-72 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-[#708090]" /></div>
-      ) : displayedJobs.length === 0 ? (
+      ) : baseJobs.length === 0 ? (
         activeTab === 'saved' ? (
           <EmptySavedState onBrowse={() => handleTabChange('search')} />
         ) : (
@@ -391,7 +411,7 @@ const SearchJobs = () => {
         )
       ) : (
         <div className="grid min-h-[35rem] overflow-hidden rounded-2xl border border-slate-200 bg-white lg:grid-cols-[0.78fr_1.22fr]">
-          <section className="border-b border-slate-200 lg:border-b-0 lg:border-r">
+          <section className="flex flex-col border-b border-slate-200 lg:border-b-0 lg:border-r">
             <div className="border-b border-slate-200 px-5 py-4">
               <p className="text-sm font-bold text-slate-950">
                 {displayedJobs.length} {activeTab === 'saved' ? 'saved' : 'relevant'} {displayedJobs.length === 1 ? 'role' : 'roles'}
@@ -401,16 +421,60 @@ const SearchJobs = () => {
                   ? 'Roles you have bookmarked for later review. Subsequent searches will not clear these.'
                   : 'Select a role to review the source, check requirement match, or save for later.'}
               </p>
+
+              {/* Health Filter Tabs / Pills */}
+              <div className="mt-3 flex flex-wrap gap-1.5" role="tablist" aria-label="Role health filter">
+                <button
+                  type="button"
+                  onClick={() => handleHealthFilterChange('all')}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors ${
+                    healthFilter === 'all'
+                      ? 'bg-[#36454f] text-white shadow-xs'
+                      : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  All Roles ({allCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleHealthFilterChange('healthy')}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors ${
+                    healthFilter === 'healthy'
+                      ? 'bg-emerald-700 text-white shadow-xs'
+                      : 'border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                  }`}
+                >
+                  🛡️ Healthy Only (≥70) ({healthyCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleHealthFilterChange('caution')}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors ${
+                    healthFilter === 'caution'
+                      ? 'bg-amber-700 text-white shadow-xs'
+                      : 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                  }`}
+                >
+                  ⚠ Cautions &amp; Overload ({cautionCount})
+                </button>
+              </div>
             </div>
-            <div className="max-h-[42rem] overflow-y-auto p-2">
-              {displayedJobs.map((job) => (
-                <JobListItem
-                  key={job.id || job.url}
-                  job={job}
-                  active={(selectedJob?.id || selectedJob?.url) === (job.id || job.url)}
-                  onSelect={() => setSelectedJob(job)}
-                />
-              ))}
+
+            <div className="flex-1 max-h-[42rem] overflow-y-auto p-2">
+              {displayedJobs.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-500">
+                  No roles match the selected filter ({healthFilter === 'healthy' ? 'Healthy Only ≥70' : 'Cautions & Overload'}).
+                </div>
+              ) : (
+                displayedJobs.map((job) => (
+                  <JobListItem
+                    key={job.id || job.url}
+                    job={job}
+                    active={(selectedJob?.id || selectedJob?.url) === (job.id || job.url)}
+                    onSelect={() => setSelectedJob(job)}
+                  />
+                ))
+              )}
             </div>
           </section>
 
@@ -542,46 +606,52 @@ const SearchJobs = () => {
 };
 
 
-const JobListItem = ({ job, active, onSelect }) => (
-  <button
-    type="button"
-    onClick={onSelect}
-    className={`w-full rounded-xl border p-4 text-left transition-colors ${active ? 'border-[#d3d3d3] bg-[#eef0f1]' : 'border-transparent hover:bg-slate-50'}`}
-  >
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <h2 className="font-bold text-slate-950">{job.title}</h2>
-        <p className="mt-1 text-sm text-slate-600">{job.company}</p>
+const JobListItem = ({ job, active, onSelect }) => {
+  const score = job.job_health?.role_health_score;
+  const isHealthy = score !== undefined && score >= 80;
+  const isModerate = score !== undefined && score >= 55 && score < 80;
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`w-full rounded-xl border p-4 text-left transition-colors ${active ? 'border-[#d3d3d3] bg-[#eef0f1]' : 'border-transparent hover:bg-slate-50'}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-bold text-slate-950">{job.title}</h2>
+          <p className="mt-1 text-sm text-slate-600">{job.company}</p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {job.user_state === 'saved' && (
+            <Bookmark className="h-4 w-4 text-[#36454f] fill-[#36454f]" aria-label="Saved job" />
+          )}
+          {job.verification_status === 'verified' && (
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-label="Verified job page" />
+          )}
+          {score !== undefined && (
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                isHealthy
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : isModerate
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'bg-rose-50 text-rose-700 border-rose-200'
+              }`}
+              title={`Role Health: ${score}/100 (${job.job_health?.health_verdict || 'Audited'})`}
+            >
+              {score} pts
+            </span>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-1.5 shrink-0">
-        {job.user_state === 'saved' && (
-          <Bookmark className="h-4 w-4 text-[#36454f] fill-[#36454f]" aria-label="Saved job" />
-        )}
-        {job.verification_status === 'verified' && (
-          <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-label="Verified job page" />
-        )}
-        {job.job_health?.role_health_score !== undefined && (
-          <span
-            className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
-              job.job_health.health_verdict === 'High Quality'
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                : job.job_health.health_verdict === 'Proceed with Caution'
-                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                : 'bg-rose-50 text-rose-700 border-rose-200'
-            }`}
-            title={`Role Health: ${job.job_health.role_health_score}/100 (${job.job_health.health_verdict})`}
-          >
-            {job.job_health.role_health_score} pts
-          </span>
-        )}
+      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+        <span>{job.location || 'Location not specified'}</span>
+        {job.employment_type && <span>{job.employment_type}</span>}
       </div>
-    </div>
-    <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
-      <span>{job.location || 'Location not specified'}</span>
-      {job.employment_type && <span>{job.employment_type}</span>}
-    </div>
-  </button>
-);
+    </button>
+  );
+};
 
 
 const JobDetails = ({ job, match, saving, updatingState, matching, onSave, onToggleSave, onDismissJob, onCheckMatch, onOpenPack }) => {
@@ -695,20 +765,34 @@ const JobDetails = ({ job, match, saving, updatingState, matching, onSave, onTog
 const RoleHealthCard = ({ health }) => {
   if (!health) return null;
 
-  const verdictStyles = {
-    'High Quality': 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    'Proceed with Caution': 'bg-amber-50 text-amber-800 border-amber-200',
-    'High-Risk Post': 'bg-rose-50 text-rose-800 border-rose-200',
-  };
+  const score = health.role_health_score ?? 100;
+  const isHealthy = score >= 80;
+  const isModerate = score >= 55 && score < 80;
 
-  const ghostRiskStyles = {
-    Low: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-    Moderate: 'text-amber-700 bg-amber-50 border-amber-200',
-    High: 'text-rose-700 bg-rose-50 border-rose-200',
-  };
+  const barColor = isHealthy ? 'bg-emerald-500' : isModerate ? 'bg-amber-500' : 'bg-rose-500';
+  const badgeClass = isHealthy
+    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+    : isModerate
+    ? 'bg-amber-50 text-amber-800 border-amber-200'
+    : 'bg-rose-50 text-rose-800 border-rose-200';
 
-  const badgeClass = verdictStyles[health.health_verdict] || 'bg-slate-100 text-slate-700 border-slate-200';
-  const ghostClass = ghostRiskStyles[health.ghost_job_risk] || 'text-slate-700 bg-slate-50 border-slate-200';
+  const ghostRisk = health.ghost_job_risk || 'Low';
+  const isGhostHigh = ghostRisk === 'High';
+  const isGhostMod = ghostRisk === 'Moderate';
+  const ghostBadgeClass = isGhostHigh
+    ? 'text-rose-700 bg-rose-50 border-rose-200'
+    : isGhostMod
+    ? 'text-amber-700 bg-amber-50 border-amber-200'
+    : 'text-emerald-700 bg-emerald-50 border-emerald-200';
+
+  const redFlags = health.red_flags || [];
+  const greenFlags = health.green_flags || [];
+
+  const techCount = health.detected_tech_count ?? 0;
+  const isTechOverload = techCount >= 10 || redFlags.some((f) => /overload|sprawl/i.test(f));
+  const burnoutPatterns = /burnout|crunch|weekend|hats|rockstar|ninja|wizard|guru|24\/7|urgent/i;
+  const burnoutFlags = redFlags.filter((f) => burnoutPatterns.test(f));
+  const boundaryCautions = redFlags.filter((f) => !burnoutPatterns.test(f));
 
   return (
     <section className="mt-7 rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
@@ -726,7 +810,7 @@ const RoleHealthCard = ({ health }) => {
         <div className="flex items-center gap-3">
           <div className="text-right">
             <div className="flex items-baseline justify-end gap-1">
-              <span className="text-2xl font-black text-slate-950">{health.role_health_score}</span>
+              <span className="text-2xl font-black text-slate-950">{score}</span>
               <span className="text-xs font-semibold text-slate-500">/100</span>
             </div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Health Score</span>
@@ -738,33 +822,125 @@ const RoleHealthCard = ({ health }) => {
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-600">
-        <div className="flex items-center gap-1.5">
-          <span className="text-slate-500">Ghost Job Risk:</span>
-          <span className={`rounded-md border px-2 py-0.5 text-xs font-bold ${ghostClass}`}>
-            {health.ghost_job_risk} Risk
+      {/* 0-100 Dynamic Visual Progress Meter */}
+      <div className="mt-4 rounded-xl border border-slate-200/70 bg-white p-3.5 shadow-2xs">
+        <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+          <span>Role Reality Health Meter</span>
+          <span className={isHealthy ? 'text-emerald-700' : isModerate ? 'text-amber-700' : 'text-rose-700'}>
+            {score} / 100 ({score >= 70 ? 'Healthy Role' : score >= 55 ? 'Caution Advised' : 'High Risk Role'})
           </span>
         </div>
-
-        {health.detected_tech_count !== undefined && (
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500">Detected Tech Tools:</span>
-            <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-bold text-slate-700">
-              {health.detected_tech_count} tools
-            </span>
-          </div>
-        )}
+        <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+            style={{ width: `${Math.max(5, Math.min(100, score))}%` }}
+          />
+        </div>
+        <div className="mt-1.5 flex justify-between text-[10px] font-medium text-slate-400">
+          <span>0 (High Risk)</span>
+          <span className="text-amber-600">55 (Caution)</span>
+          <span className="font-bold text-emerald-600">70+ (Healthy Threshold)</span>
+          <span>100</span>
+        </div>
       </div>
 
+      {/* Prominent Ghost Job Risk Alert Banner */}
+      {isGhostHigh && (
+        <div className="mt-3 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-rose-950">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+          <div className="text-xs">
+            <p className="font-bold text-rose-900">High Ghost Job Risk Detected</p>
+            <p className="mt-0.5 text-rose-800 leading-relaxed">
+              This posting appears to be from a confidential staffing agency, a placeholder repost, or has a truncated description (&lt;35 words). Confirm the posting on the company&apos;s direct careers portal before investing significant effort.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {isGhostMod && (
+        <div className="mt-3 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-amber-950">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div className="text-xs">
+            <p className="font-bold text-amber-900">Moderate Ghost Job / Speculative Pipeline Risk</p>
+            <p className="mt-0.5 text-amber-800 leading-relaxed">
+              Signals suggest this might be speculative talent pipeline harvesting rather than an active immediate headcount seat.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Junior Tech Stack Overload Gauge */}
+      <div className="mt-3 rounded-xl border border-slate-200/70 bg-white p-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-xs">
+            <span className="font-bold text-slate-900">Junior Tech Stack Overload Gauge: </span>
+            <span className="font-semibold text-slate-600">
+              {techCount} technologies detected
+            </span>
+          </div>
+          <span
+            className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${
+              isTechOverload
+                ? 'border-rose-200 bg-rose-50 text-rose-700'
+                : techCount >= 2 && techCount <= 6
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-slate-200 bg-slate-50 text-slate-700'
+            }`}
+          >
+            {isTechOverload
+              ? '⚠ Overload Alert'
+              : techCount >= 2 && techCount <= 6
+              ? '✓ Realistic Early-Career Scope'
+              : 'Standard Scope'}
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-slate-500">
+          {isTechOverload
+            ? 'Early-career roles requiring 10+ disparate tools frequently conceal unrealistic expectations or multiple roles merged into one.'
+            : techCount >= 2 && techCount <= 6
+            ? 'Focused requirements (2-6 tools) provide healthy onboarding and focused depth for entry-level talent.'
+            : 'Review technology list to ensure alignment with your current stack and growth roadmap.'}
+        </p>
+      </div>
+
+      {/* Burnout Phrasing Warnings */}
+      {burnoutFlags.length > 0 && (
+        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50/60 p-3.5">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-rose-900">
+            <AlertTriangle className="h-4 w-4 text-rose-600" />
+            <span>Burnout Phrasing &amp; Culture Warnings ({burnoutFlags.length})</span>
+          </div>
+          <ul className="mt-2 space-y-1.5 text-xs text-rose-950">
+            {burnoutFlags.map((flag, idx) => (
+              <li key={idx} className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
+                <span>{flag}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Ghost Job Risk Indicator */}
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold">
+        <div className="flex items-center gap-1.5">
+          <span className="text-slate-500">Ghost Job Risk:</span>
+          <span className={`rounded-md border px-2 py-0.5 text-xs font-bold ${ghostBadgeClass}`}>
+            {ghostRisk} Risk
+          </span>
+        </div>
+      </div>
+
+      {/* Flags Breakdown */}
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-3.5">
           <div className="flex items-center gap-1.5 text-xs font-bold text-rose-900">
             <AlertTriangle className="h-4 w-4 text-rose-600" />
-            <span>Flagged Cautions ({health.red_flags?.length || 0})</span>
+            <span>Role Boundaries &amp; Cautions ({boundaryCautions.length})</span>
           </div>
-          {health.red_flags && health.red_flags.length > 0 ? (
+          {boundaryCautions.length > 0 ? (
             <ul className="mt-2 space-y-1.5 text-xs text-rose-950">
-              {health.red_flags.map((flag, idx) => (
+              {boundaryCautions.map((flag, idx) => (
                 <li key={idx} className="flex items-start gap-2">
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
                   <span>{flag}</span>
@@ -772,18 +948,18 @@ const RoleHealthCard = ({ health }) => {
               ))}
             </ul>
           ) : (
-            <p className="mt-2 text-xs italic text-rose-700">No red flags or burnout phrases detected.</p>
+            <p className="mt-2 text-xs italic text-rose-700">No disguised roles or boundary ambiguities detected.</p>
           )}
         </div>
 
         <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3.5">
           <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            <span>Healthy Signals ({health.green_flags?.length || 0})</span>
+            <span>Workplace Culture Green Flags ({greenFlags.length})</span>
           </div>
-          {health.green_flags && health.green_flags.length > 0 ? (
+          {greenFlags.length > 0 ? (
             <ul className="mt-2 space-y-1.5 text-xs text-emerald-950">
-              {health.green_flags.map((flag, idx) => (
+              {greenFlags.map((flag, idx) => (
                 <li key={idx} className="flex items-start gap-2">
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
                   <span>{flag}</span>
