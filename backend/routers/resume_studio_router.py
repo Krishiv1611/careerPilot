@@ -23,6 +23,7 @@ from services.ats_pdf_service import generate_ats_pdf
 from services.ats_scorer_service import calculate_ats_score
 from services.bullet_enhancer_service import enhance_bullet_star
 from services.docx_resume_service import create_tailored_docx
+from services.recruiter_xray_service import analyze_recruiter_xray
 from services.resume_diff_service import apply_change_decisions, build_line_changes
 from services.user_job_service import find_user_job
 from utils.auth import get_current_user
@@ -34,6 +35,11 @@ router = APIRouter(prefix="/resume-studio", tags=["Resume Studio"])
 class ScoreLiveRequest(BaseModel):
     resume_text: str = ""
     job_description: str = ""
+
+
+class RecruiterXRayRequest(BaseModel):
+    resume_text: str = ""
+    job_description: str | None = None
 
 
 class EnhanceBulletRequest(BaseModel):
@@ -68,6 +74,11 @@ class ResumeReviewRequest(BaseModel):
 @router.post("/score-live")
 def score_resume_live(payload: ScoreLiveRequest):
     return calculate_ats_score(payload.resume_text, payload.job_description)
+
+
+@router.post("/recruiter-xray")
+def get_recruiter_xray(payload: RecruiterXRayRequest):
+    return analyze_recruiter_xray(payload.resume_text, payload.job_description or "")
 
 
 @router.post("/enhance-bullet")

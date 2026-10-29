@@ -147,6 +147,14 @@ export const exportPdfDirect = async ({ resume_text, candidate_name }) => {
     return response.data;
 };
 
+export const getRecruiterXRay = async ({ resume_text, job_description }) => {
+    const response = await api.post('/resume-studio/recruiter-xray', {
+        resume_text,
+        job_description,
+    });
+    return response.data;
+};
+
 export const getGitHubStatus = async () => {
     const response = await api.get('/github/status');
     return response.data;

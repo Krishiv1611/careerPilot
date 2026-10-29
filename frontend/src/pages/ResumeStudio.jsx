@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Download, FileClock, Github, Loader2, Send, Sparkles, TriangleAlert, X } from 'lucide-react';
+import { Check, Download, Eye, FileClock, Github, Loader2, Send, Sparkles, TriangleAlert, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 
 import {
@@ -19,6 +19,7 @@ import {
   scoreResumeLive,
   enhanceBullet,
   exportPdfDirect,
+  getRecruiterXRay,
 } from '../services/api';
 import { buildReviewPayload, reviewProgress } from '../app/resume-proposals';
 import { buildEvidenceApprovalPayload, initialEvidenceDraft } from '../app/github-evidence';
@@ -50,6 +51,9 @@ const ResumeStudio = () => {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [enhanceFeedback, setEnhanceFeedback] = useState('');
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [lensMode, setLensMode] = useState('candidate'); // 'candidate' | 'xray'
+  const [xrayData, setXrayData] = useState(null);
+  const [isXRayLoading, setIsXRayLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -115,24 +119,50 @@ const ResumeStudio = () => {
     const timer = setTimeout(async () => {
       try {
         setIsScoringLive(true);
+        setIsXRayLoading(true);
         const effectiveJobDesc = jobId
           ? (jobs.find((job) => job.id === jobId)?.description || jobDescription || activeVersion?.job_description || '')
           : (jobDescription || activeVersion?.job_description || '');
 
-        const diagnostic = await scoreResumeLive({
-          resume_text: editorContent,
-          job_description: effectiveJobDesc,
-        });
+        const [diagnostic, xray] = await Promise.all([
+          scoreResumeLive({
+            resume_text: editorContent,
+            job_description: effectiveJobDesc,
+          }),
+          getRecruiterXRay({
+            resume_text: editorContent,
+            job_description: effectiveJobDesc,
+          }),
+        ]);
         setLiveAtsDiagnostic(diagnostic);
+        setXrayData(xray);
       } catch {
         // Keep previous diagnostic on transient error
       } finally {
         setIsScoringLive(false);
+        setIsXRayLoading(false);
       }
     }, 250);
 
     return () => clearTimeout(timer);
   }, [editorContent, jobDescription, jobId, jobs, activeVersion?.job_description]);
+
+  useEffect(() => {
+    if (lensMode === 'xray' && !xrayData && editorContent && editorContent.trim()) {
+      const effectiveJobDesc = jobId
+        ? (jobs.find((job) => job.id === jobId)?.description || jobDescription || activeVersion?.job_description || '')
+        : (jobDescription || activeVersion?.job_description || '');
+
+      setIsXRayLoading(true);
+      getRecruiterXRay({
+        resume_text: editorContent,
+        job_description: effectiveJobDesc,
+      })
+        .then((data) => setXrayData(data))
+        .catch(() => {})
+        .finally(() => setIsXRayLoading(false));
+    }
+  }, [lensMode, xrayData, editorContent, jobId, jobDescription, jobs, activeVersion?.job_description]);
 
   const runAnalysis = async () => {
     if (!resumeId || (!jobId && !jobDescription.trim())) return;
@@ -451,11 +481,59 @@ const ResumeStudio = () => {
         </div>
       ) : (
         <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 sm:px-5">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Lens Mode:</span>
+              <div className="inline-flex rounded-xl bg-slate-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => setLensMode('candidate')}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition ${
+                    lensMode === 'candidate'
+                      ? 'bg-white text-slate-950 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  📝 Candidate Editor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLensMode('xray')}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition ${
+                    lensMode === 'xray'
+                      ? 'bg-[#36454f] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  🔍 Recruiter 6-Sec X-Ray
+                </button>
+              </div>
+            </div>
+            {lensMode === 'xray' ? (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-bold text-cyan-800 border border-cyan-200">
+                  ⏱️ 6-Second First Impression Simulation
+                </span>
+                {xrayData?.screen_probability !== undefined && (
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                    Screen Probability: {xrayData.screen_probability}%
+                  </span>
+                )}
+              </div>
+            ) : (
+              <span className="text-xs text-slate-500">
+                Direct candidate editor with live ATS scorecard and STAR bullet enhancer
+              </span>
+            )}
+          </div>
+
           <div className="grid overflow-hidden rounded-xl border border-slate-200 bg-white xl:grid-cols-[0.72fr_1.25fr_0.78fr]">
             <RequirementsPanel
               version={activeVersion}
               atsDiagnostic={liveAtsDiagnostic}
               isScoringLive={isScoringLive}
+              lensMode={lensMode}
+              xrayData={xrayData}
             />
             <ResumeCanvas
               version={activeVersion}
@@ -471,6 +549,10 @@ const ResumeStudio = () => {
               onDirectPdfDownload={handleDirectPdfDownload}
               isDownloadingPdf={isDownloadingPdf}
               isScoringLive={isScoringLive}
+              lensMode={lensMode}
+              setLensMode={setLensMode}
+              xrayData={xrayData}
+              isXRayLoading={isXRayLoading}
             />
             <SuggestionsPanel
               version={activeVersion}
@@ -513,7 +595,7 @@ const ResumeStudio = () => {
 };
 
 
-const RequirementsPanel = ({ version, atsDiagnostic, isScoringLive }) => {
+const RequirementsPanel = ({ version, atsDiagnostic, isScoringLive, lensMode, xrayData }) => {
   const ats = atsDiagnostic || version?.ats_diagnostic || {
     overall_score: version.ats_score ?? 75,
     grade: (version.ats_score ?? 75) >= 80 ? 'A' : (version.ats_score ?? 75) >= 65 ? 'B' : 'Needs Work',
@@ -536,6 +618,26 @@ const RequirementsPanel = ({ version, atsDiagnostic, isScoringLive }) => {
 
   return (
     <section className="border-b border-slate-200 p-5 xl:border-b-0 xl:border-r">
+      {lensMode === 'xray' && xrayData && (
+        <div className="mb-4 rounded-xl border border-cyan-200 bg-cyan-50/70 p-3.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-900">
+              6-Sec Scan Pass Rate
+            </span>
+            <span className="text-base font-black text-cyan-950">
+              {xrayData.screen_probability}%
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-cyan-900 leading-snug">
+            {xrayData.screen_probability >= 75
+              ? 'High callback likelihood in 6-second glance.'
+              : xrayData.screen_probability >= 50
+                ? 'Moderate callback probability. Eliminate detected fluff words.'
+                : 'Pass risk. Buzzword density or unquantified claims detected.'}
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between border-b border-slate-100 pb-4">
         <div>
           <div className="flex items-center gap-2">
@@ -637,6 +739,466 @@ const RequirementsPanel = ({ version, atsDiagnostic, isScoringLive }) => {
 };
 
 
+const FLUFF_CATALOG = {
+  hardworking: "Replace with evidence of sustained output (e.g. 'Delivered 14 features across 3 sprint cycles')",
+  passionate: "Replace with tangible project contributions or open-source commits",
+  'self-starter': "Replace with autonomous initiative (e.g. 'Spearheaded migration to Docker')",
+  'team player': "Replace with collaboration metrics (e.g. 'Partnered with 4 engineers in agile sprint')",
+  'detail-oriented': "Replace with quality metrics (e.g. 'Achieved 98% test coverage with zero regressions')",
+  'quick learner': "Replace with rapid execution (e.g. 'Mastered Go in 2 weeks to ship payment gateway')",
+  'results-driven': "Replace with specific revenue, latency, or throughput metrics",
+  enthusiastic: "Replace with documented domain achievements",
+  'go-getter': "Replace with proactive architectural contributions",
+};
+
+const renderFluffAnnotatedText = (text, fluffCatalog = FLUFF_CATALOG) => {
+  if (!text) return '\u00A0';
+  const words = Object.keys(fluffCatalog);
+  if (words.length === 0) return text;
+
+  const sorted = [...words].sort((a, b) => b.length - a.length);
+  const regex = new RegExp(`\\b(${sorted.map((w) => w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})\\b`, 'gi');
+
+  const parts = [];
+  let lastIdx = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIdx) {
+      parts.push(text.substring(lastIdx, match.index));
+    }
+    const matched = match[0];
+    const key = matched.toLowerCase();
+    const replacement = fluffCatalog[key] || 'Replace with concrete quantifiable STAR achievement';
+
+    parts.push(
+      <span
+        key={`fluff-${match.index}`}
+        className="group relative inline-block rounded bg-amber-100 px-1 font-semibold text-amber-950 underline decoration-amber-500 decoration-2 underline-offset-2 transition hover:bg-amber-200 cursor-help"
+      >
+        {matched}
+        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden w-72 rounded-lg bg-slate-900 p-2.5 text-left text-xs font-normal text-white shadow-2xl group-hover:block z-40">
+          <span className="flex items-center gap-1 font-bold text-amber-300">
+            ⚠️ Fluff Word Detected: "{matched}"
+          </span>
+          <span className="mt-1 block text-slate-200 leading-relaxed text-[11px]">{replacement}</span>
+        </span>
+      </span>
+    );
+    lastIdx = regex.lastIndex;
+  }
+
+  if (lastIdx < text.length) {
+    parts.push(text.substring(lastIdx));
+  }
+
+  return parts;
+};
+
+const parseResumeForHotspots = (content) => {
+  const lines = (content || '').split('\n');
+  const headerLines = [];
+  const skillsLines = [];
+  const topBulletLines = [];
+  const otherLines = [];
+
+  let inHeader = true;
+  let inSkills = false;
+  let bulletsFound = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+    const trimmed = rawLine.trim();
+
+    if (!trimmed) {
+      if (inHeader && headerLines.length > 0) {
+        inHeader = false;
+      }
+      otherLines.push({ text: rawLine, isBlank: true, index: i });
+      continue;
+    }
+
+    const isHeading =
+      /^(EDUCATION|EXPERIENCE|WORK EXPERIENCE|PROJECTS|TECHNICAL SKILLS|SKILLS|CORE COMPETENCIES|SUMMARY|PROFILE)\b/i.test(trimmed) ||
+      (trimmed.length <= 32 && /^[A-Z\s/&-]+$/.test(trimmed) && !trimmed.includes('.'));
+
+    if (isHeading) {
+      inHeader = false;
+      if (/SKILL|COMPETENC|TECHNOLOG|STACK/i.test(trimmed)) {
+        inSkills = true;
+      } else {
+        inSkills = false;
+      }
+      otherLines.push({ text: rawLine, isHeading: true, index: i });
+      continue;
+    }
+
+    if (inHeader) {
+      if (headerLines.length < 3) {
+        headerLines.push({ text: rawLine, index: i });
+        continue;
+      } else {
+        inHeader = false;
+      }
+    }
+
+    if (inSkills) {
+      skillsLines.push({ text: rawLine, index: i });
+      continue;
+    }
+
+    if (!inSkills && skillsLines.length === 0 && /^technical skills?:/i.test(trimmed)) {
+      skillsLines.push({ text: rawLine, index: i });
+      continue;
+    }
+
+    const isBullet = /^[-*•]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed);
+    if (isBullet && bulletsFound < 2) {
+      topBulletLines.push({ text: rawLine, index: i });
+      bulletsFound++;
+      continue;
+    }
+
+    otherLines.push({ text: rawLine, index: i });
+  }
+
+  if (headerLines.length === 0 && lines.length > 0) {
+    const firstNonEmpty = lines.find((l) => l.trim().length > 0);
+    if (firstNonEmpty) {
+      headerLines.push({ text: firstNonEmpty, index: 0 });
+    }
+  }
+
+  if (skillsLines.length === 0) {
+    const skillCandidate = lines.find((l) => /python|fastapi|docker|react|sql|aws|postgresql|redis/i.test(l) && !topBulletLines.some((b) => b.text === l));
+    if (skillCandidate) {
+      skillsLines.push({ text: skillCandidate, index: -1 });
+    }
+  }
+
+  if (topBulletLines.length === 0) {
+    const bulletCandidates = otherLines.filter((l) => !l.isHeading && !l.isBlank && l.text.trim().length > 30);
+    if (bulletCandidates.length > 0) {
+      topBulletLines.push(bulletCandidates[0]);
+      if (bulletCandidates.length > 1) {
+        topBulletLines.push(bulletCandidates[1]);
+      }
+    }
+  }
+
+  return {
+    headerLines,
+    skillsLines,
+    topBulletLines,
+    otherLines,
+  };
+};
+
+const ScreenProbabilityDial = ({ score = 65 }) => {
+  const radius = 28;
+  const stroke = 5;
+  const normalizedRadius = radius - stroke * 0.5;
+  const circumference = normalizedRadius * 2 * Math.PI;
+  const strokeDashoffset = circumference - (Math.min(100, Math.max(0, score)) / 100) * circumference;
+
+  const toneColor =
+    score >= 75
+      ? 'text-emerald-500'
+      : score >= 50
+        ? 'text-amber-500'
+        : 'text-rose-500';
+
+  const badgeColor =
+    score >= 75
+      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+      : score >= 50
+        ? 'bg-amber-50 text-amber-800 border-amber-200'
+        : 'bg-rose-50 text-rose-800 border-rose-200';
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative flex h-16 w-16 shrink-0 items-center justify-center">
+        <svg height={radius * 2} width={radius * 2} className="-rotate-90 transform">
+          <circle
+            stroke="#e2e8f0"
+            fill="transparent"
+            strokeWidth={stroke}
+            r={normalizedRadius}
+            cx={radius}
+            cy={radius}
+          />
+          <circle
+            className={`${toneColor} transition-all duration-500 ease-out`}
+            stroke="currentColor"
+            fill="transparent"
+            strokeWidth={stroke}
+            strokeDasharray={`${circumference} ${circumference}`}
+            style={{ strokeDashoffset }}
+            strokeLinecap="round"
+            r={normalizedRadius}
+            cx={radius}
+            cy={radius}
+          />
+        </svg>
+        <div className="absolute flex flex-col items-center">
+          <span className="text-sm font-black text-slate-950">{score}%</span>
+          <span className="text-[8px] font-bold uppercase text-slate-400">Screen</span>
+        </div>
+      </div>
+      <div>
+        <div className="flex items-center gap-1.5">
+          <span className={`inline-block rounded-md border px-2 py-0.5 text-xs font-bold ${badgeColor}`}>
+            {score >= 75 ? 'Likely Screen' : score >= 50 ? 'Borderline' : 'At Risk'}
+          </span>
+        </div>
+        <p className="mt-1 text-[11px] text-slate-500">Predicted 6s recruiter callback rate</p>
+      </div>
+    </div>
+  );
+};
+
+const HiringManagerVerdictBanner = ({ xrayData }) => {
+  const score = xrayData?.screen_probability ?? 65;
+  const verdict = xrayData?.hiring_manager_verdict || 'Scanning resume for 6-second recruiter first impression...';
+  const greenFlags = xrayData?.instant_green_flags || [];
+  const redFlags = xrayData?.instant_red_flags || [];
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center border-b border-slate-100 pb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-md bg-cyan-100 px-2 py-0.5 text-xs font-bold text-cyan-900 border border-cyan-200">
+              👁️ Recruiter 6-Sec X-Ray
+            </span>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Cognitive Scan Verdict
+            </span>
+          </div>
+          <h2 className="mt-1 text-base font-black text-slate-950">Hiring Manager 6-Second Verdict</h2>
+          <p className="mt-1 text-xs leading-5 text-slate-600 max-w-xl">{verdict}</p>
+        </div>
+        <ScreenProbabilityDial score={score} />
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-900">
+              Instant Green Flags (Glance Winners)
+            </span>
+            <span className="text-[11px] font-semibold text-emerald-700">{greenFlags.length} detected</span>
+          </div>
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {greenFlags.map((flag) => (
+              <span
+                key={flag}
+                className="inline-flex items-center gap-1 rounded-md bg-white border border-emerald-200 px-2 py-1 text-xs font-bold text-emerald-800 shadow-2xs"
+              >
+                <Check className="h-3 w-3 text-emerald-600" />
+                {flag}
+              </span>
+            ))}
+            {greenFlags.length === 0 && (
+              <p className="text-xs text-slate-500">No high-value tech keywords detected in instant glance.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-rose-100 bg-rose-50/60 p-3.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-900">
+              Instant Red Flags (6-Sec Disqualifiers)
+            </span>
+            <span className="text-[11px] font-semibold text-rose-700">{redFlags.length} detected</span>
+          </div>
+          <div className="mt-2.5 space-y-1.5">
+            {redFlags.map((flag, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-1.5 rounded-md bg-white border border-rose-200 px-2.5 py-1 text-xs text-rose-900 shadow-2xs"
+              >
+                <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-rose-600 mt-0.5" />
+                <span>{flag}</span>
+              </div>
+            ))}
+            {redFlags.length === 0 && (
+              <p className="flex items-center gap-1.5 text-xs text-emerald-800">
+                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                No immediate 6-second disqualifiers detected.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const RecruiterXRayView = ({
+  content,
+  xrayData,
+  onSwitchToEditor,
+}) => {
+  const hotspots = parseResumeForHotspots(content);
+  const fluffWords = xrayData?.fluff_words_detected || [];
+  const fluffCatalog = { ...FLUFF_CATALOG };
+  for (const item of fluffWords) {
+    if (item.word && item.replacement) {
+      fluffCatalog[item.word.toLowerCase()] = item.replacement;
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-cyan-50/70 border border-cyan-200 px-3.5 py-2.5 text-xs text-cyan-950">
+        <span className="font-bold flex items-center gap-1.5">
+          <Eye className="h-4 w-4 text-cyan-700" />
+          3 Visual Scan Hotspots (Where recruiters look in first 6 seconds):
+        </span>
+        <div className="flex flex-wrap gap-2 text-[11px]">
+          <span className="rounded-md bg-white border border-cyan-300 px-2 py-0.5 font-bold text-cyan-800">
+            1. Header & Title (Sec 0-1)
+          </span>
+          <span className="rounded-md bg-white border border-cyan-300 px-2 py-0.5 font-bold text-cyan-800">
+            2. Top 2 Bullets (Sec 2-4)
+          </span>
+          <span className="rounded-md bg-white border border-cyan-300 px-2 py-0.5 font-bold text-cyan-800">
+            3. Skills Matrix (Sec 5-6)
+          </span>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-[#fffefa] p-4 sm:p-5 font-mono text-xs sm:text-sm leading-6 text-slate-800 space-y-4">
+        {/* Hotspot 1: Header */}
+        <div className="rounded-xl border-2 border-cyan-400 bg-cyan-50/20 p-3.5 shadow-[0_0_15px_rgba(6,182,212,0.12)] ring-1 ring-cyan-300/40">
+          <div className="mb-2 flex items-center justify-between border-b border-cyan-200/60 pb-1.5 font-sans">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-cyan-100 border border-cyan-300 px-2 py-0.5 text-[11px] font-black text-cyan-900 uppercase tracking-wider">
+              🎯 Hotspot 1: Header & Target Title (Sec 0-1)
+            </span>
+            <span className="text-[11px] font-semibold text-cyan-700">Role Match Skim</span>
+          </div>
+          <div className="space-y-1">
+            {hotspots.headerLines.map((line, idx) => (
+              <div key={idx} className="whitespace-pre-wrap">
+                {renderFluffAnnotatedText(line.text, fluffCatalog)}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Hotspot 3: Technical Skills Matrix */}
+        {hotspots.skillsLines.length > 0 && (
+          <div className="rounded-xl border-2 border-cyan-400 bg-cyan-50/20 p-3.5 shadow-[0_0_15px_rgba(6,182,212,0.12)] ring-1 ring-cyan-300/40">
+            <div className="mb-2 flex items-center justify-between border-b border-cyan-200/60 pb-1.5 font-sans">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-cyan-100 border border-cyan-300 px-2 py-0.5 text-[11px] font-black text-cyan-900 uppercase tracking-wider">
+                🛠️ Hotspot 3: Technical Skills Matrix (Sec 5-6)
+              </span>
+              <span className="text-[11px] font-semibold text-cyan-700">Required Stack Verification</span>
+            </div>
+            <div className="space-y-1">
+              {hotspots.skillsLines.map((line, idx) => (
+                <div key={idx} className="whitespace-pre-wrap">
+                  {renderFluffAnnotatedText(line.text, fluffCatalog)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Hotspot 2: Top 2 Work/Project Bullets */}
+        {hotspots.topBulletLines.length > 0 && (
+          <div className="rounded-xl border-2 border-cyan-400 bg-cyan-50/20 p-3.5 shadow-[0_0_15px_rgba(6,182,212,0.12)] ring-1 ring-cyan-300/40">
+            <div className="mb-2 flex items-center justify-between border-b border-cyan-200/60 pb-1.5 font-sans">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-cyan-100 border border-cyan-300 px-2 py-0.5 text-[11px] font-black text-cyan-900 uppercase tracking-wider">
+                ⚡ Hotspot 2: Top 2 Work/Project Bullets (Sec 2-4)
+              </span>
+              <span className="text-[11px] font-semibold text-cyan-700">Quantified Technical Impact</span>
+            </div>
+            <div className="space-y-1.5">
+              {hotspots.topBulletLines.map((line, idx) => (
+                <div key={idx} className="whitespace-pre-wrap">
+                  {renderFluffAnnotatedText(line.text, fluffCatalog)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Other Resume Lines */}
+        {hotspots.otherLines.length > 0 && (
+          <div className="space-y-1 pt-2 border-t border-slate-200">
+            <p className="text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400 mb-2">
+              Additional Resume Sections (Secondary Skim)
+            </p>
+            {hotspots.otherLines.map((line, idx) => (
+              <div
+                key={idx}
+                className={`whitespace-pre-wrap ${line.isHeading ? 'font-sans font-bold text-slate-900 mt-3 pt-1 text-xs uppercase tracking-wider' : ''}`}
+              >
+                {line.isBlank ? '\u00A0' : renderFluffAnnotatedText(line.text, fluffCatalog)}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Fluff Words Panel */}
+      {fluffWords.length > 0 ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-200 text-xs font-bold text-amber-900">
+                {fluffWords.length}
+              </span>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-950">
+                Fluff Words Detected — Actionable STAR Replacements
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={onSwitchToEditor}
+              className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-amber-700 cursor-pointer"
+            >
+              Fix in Candidate Editor
+            </button>
+          </div>
+          <div className="mt-3 divide-y divide-amber-200/70">
+            {fluffWords.map((item, idx) => (
+              <div key={idx} className="py-2.5 first:pt-0 last:pb-0">
+                <div className="flex items-baseline gap-2">
+                  <span className="rounded bg-amber-200 px-1.5 py-0.5 text-xs font-bold text-amber-950">
+                    "{item.word}"
+                  </span>
+                  <span className="text-xs text-amber-900/80 italic">in {item.context}</span>
+                </div>
+                <p className="mt-1 text-xs font-medium text-amber-950">
+                  <span className="font-bold text-amber-900">Recommended fix: </span>
+                  {item.replacement}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs text-emerald-900 flex items-center justify-between">
+          <span className="flex items-center gap-2 font-medium">
+            <Check className="h-4 w-4 text-emerald-600" />
+            Zero fluff buzzwords detected. Every word contributes to technical credibility!
+          </span>
+          <button
+            type="button"
+            onClick={onSwitchToEditor}
+            className="text-xs font-bold text-emerald-800 hover:underline cursor-pointer"
+          >
+            Edit Resume
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ResumeCanvas = ({
   version,
   editorContent,
@@ -651,6 +1213,10 @@ const ResumeCanvas = ({
   onDirectPdfDownload,
   isDownloadingPdf,
   isScoringLive,
+  lensMode,
+  setLensMode,
+  xrayData,
+  isXRayLoading,
 }) => {
   const textareaRef = useRef(null);
 
@@ -663,36 +1229,77 @@ const ResumeCanvas = ({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-slate-950">Live Resume Editor</h2>
+            <h2 className="text-sm font-bold text-slate-950">
+              {lensMode === 'xray' ? 'Recruiter 6-Sec X-Ray' : 'Live Resume Editor'}
+            </h2>
             {version?.template_mode && (
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
                 {version.template_mode === 'same_docx_template' ? 'DOCX template' : 'Clean PDF'}
               </span>
             )}
-            {isScoringLive ? (
+            <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setLensMode('candidate')}
+                className={`rounded-md px-2 py-0.5 text-[11px] font-bold transition ${
+                  lensMode === 'candidate'
+                    ? 'bg-white text-slate-900 shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                📝 Candidate Editor
+              </button>
+              <button
+                type="button"
+                onClick={() => setLensMode('xray')}
+                className={`rounded-md px-2 py-0.5 text-[11px] font-bold transition ${
+                  lensMode === 'xray'
+                    ? 'bg-[#36454f] text-white shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                🔍 Recruiter 6-Sec X-Ray
+              </button>
+            </div>
+            {(isScoringLive || isXRayLoading) ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Scoring live…
+                Evaluating…
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                ATS Synced
+                {lensMode === 'xray' ? 'X-Ray Active' : 'ATS Synced'}
               </span>
             )}
           </div>
-          <p className="mt-1 text-xs text-slate-500">Edit directly below. 250ms debounced live ATS evaluation.</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {lensMode === 'xray'
+              ? 'Simulates first 6 seconds of recruiter gaze: hotspots, instant red/green flags, and fluff detector.'
+              : 'Edit directly below. 250ms debounced live ATS evaluation.'}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={triggerEnhance}
-            disabled={isEnhancing}
-            title="Select bullet or place cursor on line to enhance with STAR"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
-          >
-            {isEnhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-amber-600" />}
-            Enhance with STAR
-          </button>
+          {lensMode === 'candidate' && (
+            <button
+              type="button"
+              onClick={triggerEnhance}
+              disabled={isEnhancing}
+              title="Select bullet or place cursor on line to enhance with STAR"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+            >
+              {isEnhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-amber-600" />}
+              Enhance with STAR
+            </button>
+          )}
+          {lensMode === 'xray' && (
+            <button
+              type="button"
+              onClick={() => setLensMode('candidate')}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+            >
+              📝 Candidate Editor
+            </button>
+          )}
           <button
             type="button"
             onClick={onDirectPdfDownload}
@@ -711,39 +1318,52 @@ const ResumeCanvas = ({
         </div>
       )}
 
-      <div className="mt-3">
-        <textarea
-          ref={textareaRef}
-          value={editorContent}
-          onChange={(event) => setEditorContent(event.target.value)}
-          rows={22}
-          placeholder="Resume text..."
-          className="w-full rounded-xl border border-slate-200 bg-[#fffefa] p-4 font-mono text-xs sm:text-sm leading-6 text-slate-800 outline-none transition focus:border-[#36454f] focus:ring-1 focus:ring-[#36454f]"
-          spellCheck="false"
-        />
-      </div>
+      {lensMode === 'xray' ? (
+        <div className="mt-4 space-y-5">
+          <HiringManagerVerdictBanner xrayData={xrayData} />
+          <RecruiterXRayView
+            content={editorContent}
+            xrayData={xrayData}
+            onSwitchToEditor={() => setLensMode('candidate')}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="mt-3">
+            <textarea
+              ref={textareaRef}
+              value={editorContent}
+              onChange={(event) => setEditorContent(event.target.value)}
+              rows={22}
+              placeholder="Resume text..."
+              className="w-full rounded-xl border border-slate-200 bg-[#fffefa] p-4 font-mono text-xs sm:text-sm leading-6 text-slate-800 outline-none transition focus:border-[#36454f] focus:ring-1 focus:ring-[#36454f]"
+              spellCheck="false"
+            />
+          </div>
 
-      <div className="mt-4 flex gap-2">
-        <input
-          value={instruction}
-          onChange={(event) => setInstruction(event.target.value)}
-          onKeyDown={(event) => event.key === 'Enter' && onPrompt()}
-          placeholder="Try: Emphasize Python"
-          className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[#708090]"
-        />
-        <button
-          type="button"
-          onClick={onPrompt}
-          disabled={!instruction.trim() || working}
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#36454f] text-white disabled:bg-slate-300"
-          aria-label="Apply prompt"
-        >
-          <Send className="h-4 w-4" />
-        </button>
-      </div>
-      <p className="mt-2 text-xs leading-5 text-slate-500">
-        Highlight or click any bullet line to transform with STAR methodology, or type an AI tailoring prompt above.
-      </p>
+          <div className="mt-4 flex gap-2">
+            <input
+              value={instruction}
+              onChange={(event) => setInstruction(event.target.value)}
+              onKeyDown={(event) => event.key === 'Enter' && onPrompt()}
+              placeholder="Try: Emphasize Python"
+              className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[#708090]"
+            />
+            <button
+              type="button"
+              onClick={onPrompt}
+              disabled={!instruction.trim() || working}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#36454f] text-white disabled:bg-slate-300"
+              aria-label="Apply prompt"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Highlight or click any bullet line to transform with STAR methodology, or type an AI tailoring prompt above.
+          </p>
+        </>
+      )}
     </section>
   );
 };
