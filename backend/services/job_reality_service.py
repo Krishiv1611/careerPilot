@@ -30,7 +30,7 @@ GREEN_FLAG_PATTERNS = [
 
 def audit_job_reality(title: str, description: str, company: str = "") -> dict:
     """Audit a job posting for ghost job signals, tech stack overload, burnout culture, and disguised roles."""
-    text = f"{title} {description}".lower()
+    text = f"{title} {description} {company}".lower()
     red_flags = []
     green_flags = []
 
@@ -53,12 +53,18 @@ def audit_job_reality(title: str, description: str, company: str = "") -> dict:
     # 3. Tech Stack Overload Check
     extractor = SkillExtractor()
     extracted_skills, _ = extractor.extract_skills(description)
-    if len(extracted_skills) >= 10:
+    is_junior = any(j in title.lower() for j in ["junior", "entry", "fresher", "intern", "associate", "graduate", "0-1", "0-2"])
+    if is_junior and len(extracted_skills) >= 10:
         red_flags.append(
             f"Tech stack overload: {len(extracted_skills)} disparate technologies required for an entry-level title."
         )
         score -= 25
-    elif len(extracted_skills) <= 6 and len(extracted_skills) >= 2:
+    elif len(extracted_skills) >= 14:
+        red_flags.append(
+            f"Tech stack sprawl: {len(extracted_skills)} disparate technologies demanded in a single role."
+        )
+        score -= 20
+    elif 2 <= len(extracted_skills) <= 6:
         green_flags.append("Focused, realistic technology requirements for an early-career engineer.")
 
     # 4. Mentorship & Health Signals
@@ -69,7 +75,15 @@ def audit_job_reality(title: str, description: str, company: str = "") -> dict:
 
     # 5. Ghost Job & Stale Indicators
     ghost_risk = "Low"
-    if score < 50:
+    if "confidential" in text or "agency" in text or len(description.split()) < 35:
+        ghost_risk = "High"
+        score -= 25
+        red_flags.append("Ghost Job Indicator: Confidential poster or severely truncated role description")
+    elif "pipeline" in text and "immediate" in text:
+        ghost_risk = "Moderate"
+        score -= 12
+        red_flags.append("Possible speculative pipeline posting rather than an active immediate seat")
+    elif score < 50:
         ghost_risk = "High"
     elif score < 70 or burnout_count >= 2:
         ghost_risk = "Moderate"
@@ -89,4 +103,5 @@ def audit_job_reality(title: str, description: str, company: str = "") -> dict:
         "red_flags": red_flags,
         "green_flags": green_flags,
         "ghost_job_risk": ghost_risk,
+        "detected_tech_count": len(extracted_skills),
     }

@@ -53,3 +53,10 @@ class JobRealityServiceTests(TestCase):
         audit = audit_job_reality(title, jd, company="Direct Marketing Corp")
         self.assertLess(audit["role_health_score"], 40)
         self.assertTrue(any("sales" in r.lower() or "commission" in r.lower() for r in audit["red_flags"]))
+
+    def test_flags_ghost_job_warning_for_vague_repost(self):
+        desc = "Seeking rockstar engineer to join our confidential dynamic pipeline. Immediate opening. No specific requirements listed."
+        result = audit_job_reality("Developer", desc, "Confidential Agency")
+        self.assertEqual("High", result["ghost_job_risk"])
+        self.assertIn("detected_tech_count", result)
+        self.assertIsInstance(result["detected_tech_count"], int)
