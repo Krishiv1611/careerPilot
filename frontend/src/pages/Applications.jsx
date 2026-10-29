@@ -13,10 +13,12 @@ import {
   Copy,
   Download,
   FileText,
+  Github,
   List,
   Loader2,
   Send,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Trash2,
   X,
@@ -36,6 +38,7 @@ import {
   getResumeDefenseStressTest,
   updateApplicationDetails,
   updateApplicationStatus,
+  verifyGitHubRepo,
 } from '../services/api';
 import {
   ALLOWED_NEXT_STATUSES,
@@ -253,16 +256,22 @@ const Applications = () => {
                             🛡️ Stress-Test
                           </button>
 
-                          {app.status === 'Rejected' && (
-                            <button
-                              type="button"
-                              onClick={() => setAutopsyTarget({ job, application: app })}
-                              className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100"
-                              title="Run application autopsy to diagnose fatal blockers"
-                            >
-                              🔬 Run Autopsy
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setAutopsyTarget({ job, application: app })}
+                            className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold ${
+                              app.status === 'Rejected'
+                                ? 'border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+                                : 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                            }`}
+                            title={
+                              app.status === 'Rejected'
+                                ? 'Run application autopsy to diagnose fatal blockers'
+                                : 'Run pre-mortem risk audit to detect fatal gaps before rejection'
+                            }
+                          >
+                            {app.status === 'Rejected' ? '🔬 Post-Mortem Autopsy' : '🔬 Pre-Mortem Risk Audit'}
+                          </button>
 
                           {app.resume_version_id && (
                             <button
@@ -438,16 +447,22 @@ const ApplicationDetail = ({
             🛡️ Stress-Test
           </button>
 
-          {application.status === 'Rejected' && (
-            <button
-              type="button"
-              onClick={() => onOpenAutopsy(job, application)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
-              title="Run application autopsy to diagnose fatal blockers"
-            >
-              🔬 Run Autopsy
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => onOpenAutopsy(job, application)}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold ${
+              application.status === 'Rejected'
+                ? 'border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+                : 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+            }`}
+            title={
+              application.status === 'Rejected'
+                ? 'Run application autopsy to diagnose fatal blockers'
+                : 'Run pre-mortem risk audit to detect fatal gaps before rejection'
+            }
+          >
+            {application.status === 'Rejected' ? '🔬 Post-Mortem Autopsy' : '🔬 Pre-Mortem Risk Audit'}
+          </button>
 
           {application.resume_version_id && (
             <button
@@ -1039,6 +1054,10 @@ const AutopsyDrawer = ({ job, application, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [autopsy, setAutopsy] = useState(null);
+  const [repoUrl, setRepoUrl] = useState('');
+  const [verifyingRepo, setVerifyingRepo] = useState(false);
+  const [verifyResult, setVerifyResult] = useState(null);
+  const [verifyError, setVerifyError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -1061,19 +1080,47 @@ const AutopsyDrawer = ({ job, application, onClose }) => {
     };
   }, [application.id]);
 
+  const handleVerifyRepo = async () => {
+    if (!repoUrl.trim()) return;
+    setVerifyingRepo(true);
+    setVerifyError('');
+    try {
+      const skillToVerify = autopsy?.missing_skill || 'docker';
+      const result = await verifyGitHubRepo(repoUrl.trim(), skillToVerify);
+      setVerifyResult(result);
+    } catch (err) {
+      setVerifyError(err.response?.data?.detail || 'GitHub repo inspection failed.');
+    } finally {
+      setVerifyingRepo(false);
+    }
+  };
+
+  const isPreMortem = autopsy?.mode === 'pre_mortem' || application.status !== 'Rejected';
+  const severity = autopsy?.severity || (isPreMortem ? 'HIGH' : 'CRITICAL');
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between border-b border-slate-100 pb-4">
           <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-rose-100 text-lg text-rose-700">
+            <span
+              className={`grid h-10 w-10 place-items-center rounded-xl text-lg ${
+                isPreMortem ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+              }`}
+            >
               🔬
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-black text-slate-950">Application Autopsy & Gap Recovery</h2>
-                <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-800">
-                  Post-Mortem
+                <h2 className="text-xl font-black text-slate-950">
+                  {isPreMortem ? 'Pre-Mortem Risk Audit' : 'Application Autopsy & Gap Recovery'}
+                </h2>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                    isPreMortem ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
+                  }`}
+                >
+                  {isPreMortem ? 'Pre-Mortem' : 'Post-Mortem'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-medium">
@@ -1093,9 +1140,9 @@ const AutopsyDrawer = ({ job, application, onClose }) => {
         {loading ? (
           <div className="grid min-h-[35vh] place-items-center">
             <div className="text-center">
-              <Loader2 className="mx-auto h-7 w-7 animate-spin text-rose-600" />
+              <Loader2 className={`mx-auto h-7 w-7 animate-spin ${isPreMortem ? 'text-amber-600' : 'text-rose-600'}`} />
               <p className="mt-3 text-xs font-bold uppercase tracking-wider text-slate-500">
-                Diagnosing rejection cause and fatal blockers...
+                {isPreMortem ? 'Auditing application risks and qualification gaps...' : 'Diagnosing rejection cause and fatal blockers...'}
               </p>
             </div>
           </div>
@@ -1105,25 +1152,42 @@ const AutopsyDrawer = ({ job, application, onClose }) => {
           </div>
         ) : autopsy && (
           <div className="mt-5 space-y-5">
-            {/* Fatal Blocker */}
-            <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4">
-              <div className="flex items-center gap-2 text-rose-800">
-                <ShieldAlert className="h-5 w-5" />
-                <h3 className="text-sm font-bold uppercase tracking-wider">Fatal Blocker Identified</h3>
+            {/* Fatal Disqualifier / Pre-Mortem Risk Banner with Severity Badge */}
+            <div
+              className={`rounded-xl border p-4 ${
+                isPreMortem ? 'border-amber-200 bg-amber-50/70' : 'border-rose-200 bg-rose-50/70'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`flex items-center gap-2 ${isPreMortem ? 'text-amber-800' : 'text-rose-800'}`}>
+                  <ShieldAlert className="h-5 w-5" />
+                  <h3 className="text-sm font-bold uppercase tracking-wider">
+                    {isPreMortem ? 'Impending Risk Identified' : 'Fatal Blocker Identified'}
+                  </h3>
+                </div>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-black uppercase tracking-wider ${
+                    severity === 'CRITICAL'
+                      ? 'border border-rose-300 bg-rose-200 text-rose-900'
+                      : 'border border-amber-300 bg-amber-200 text-amber-900'
+                  }`}
+                >
+                  {severity}
+                </span>
               </div>
-              <p className="mt-2 text-sm font-bold text-rose-950">
+              <p className={`mt-2 text-sm font-bold ${isPreMortem ? 'text-amber-950' : 'text-rose-950'}`}>
                 {autopsy.fatal_blocker}
               </p>
-              <p className="mt-1 text-xs text-rose-700 leading-relaxed">
+              <p className={`mt-1 text-xs leading-relaxed ${isPreMortem ? 'text-amber-800' : 'text-rose-700'}`}>
                 {autopsy.why_it_disqualified}
               </p>
             </div>
 
-            {/* Recommended Growth Blueprint */}
+            {/* 48-Hour Recovery Sprint Card */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  48-Hour Recovery Bridge
+                  48-Hour Recovery Sprint
                 </span>
                 <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-800">
                   ⏱️ {autopsy.recovery_time_hours || 48}h Recovery Cycle
@@ -1150,13 +1214,96 @@ const AutopsyDrawer = ({ job, application, onClose }) => {
 
               <div className="mt-5 pt-4 border-t border-slate-100">
                 <Link
-                  to="/growth"
+                  to={autopsy.recommended_blueprint?.growth_url || `/growth?skill=${autopsy.missing_skill || ''}`}
                   onClick={onClose}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition"
                 >
-                  Bridge to Growth Studio <ArrowRight className="h-4 w-4" />
+                  Launch 48-Hour Sprint in Growth Studio ➔
                 </Link>
               </div>
+            </div>
+
+            {/* In-Drawer GitHub Repo Verifier */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-5 shadow-sm space-y-3">
+              <div className="flex items-center gap-2">
+                <Github className="h-4 w-4 text-slate-800" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  In-Drawer GitHub Proof Verifier
+                </h4>
+                {autopsy.missing_skill && (
+                  <span className="ml-auto rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold uppercase text-slate-700">
+                    Target: {autopsy.missing_skill}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-600">
+                Verify your public repository proof to clear the {autopsy.missing_skill ? `'${autopsy.missing_skill}'` : 'skill'} gap immediately.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="url"
+                  value={repoUrl}
+                  onChange={(e) => setRepoUrl(e.target.value)}
+                  placeholder="https://github.com/username/repository"
+                  className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:border-slate-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleVerifyRepo}
+                  disabled={verifyingRepo || !repoUrl.trim()}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#36454f] px-4 py-2 text-xs font-bold text-white hover:bg-[#202a30] disabled:bg-slate-300 transition"
+                >
+                  {verifyingRepo ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying...
+                    </>
+                  ) : (
+                    'Verify GitHub Proof'
+                  )}
+                </button>
+              </div>
+
+              {verifyError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-700">
+                  {verifyError}
+                </div>
+              )}
+
+              {verifyResult && (
+                <div
+                  className={`rounded-xl border p-3 text-xs ${
+                    verifyResult.verified
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
+                      : 'border-rose-200 bg-rose-50 text-rose-950'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold">
+                    {verifyResult.verified ? (
+                      <>
+                        <ShieldCheck className="h-4 w-4 text-emerald-600" /> Authentic Repository Verified!
+                      </>
+                    ) : (
+                      <>
+                        <ShieldAlert className="h-4 w-4 text-rose-600" /> Verification Incomplete
+                      </>
+                    )}
+                  </div>
+                  {verifyResult.reasons && verifyResult.reasons.length > 0 && (
+                    <ul className="mt-2 space-y-1 text-[11px]">
+                      {verifyResult.reasons.map((r, i) => (
+                        <li key={i}>• {r}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {verifyResult.generated_bullet && (
+                    <div className="mt-2.5 rounded-lg border border-emerald-300 bg-white p-2.5 text-xs text-slate-800">
+                      <span className="font-bold text-emerald-800">STAR Resume Bullet Ready:</span>{' '}
+                      {verifyResult.generated_bullet}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

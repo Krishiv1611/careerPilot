@@ -15,7 +15,7 @@ import {
   Sprout,
   X,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import {
   completeGrowthPriority,
@@ -156,6 +156,7 @@ const BlueprintModal = ({ skill, onClose }) => {
 
 
 const Growth = () => {
+  const [searchParams] = useSearchParams();
   const [plan, setPlan] = useState({ priorities: [], evidence_source_count: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -164,6 +165,13 @@ const Growth = () => {
   const [verifyingId, setVerifyingId] = useState(null);
   const [verificationResults, setVerificationResults] = useState({});
   const [activeBlueprintSkill, setActiveBlueprintSkill] = useState(null);
+
+  useEffect(() => {
+    const skillParam = searchParams.get('skill');
+    if (skillParam) {
+      setActiveBlueprintSkill(skillParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     let active = true;

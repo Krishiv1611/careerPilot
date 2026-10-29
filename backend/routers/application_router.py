@@ -183,6 +183,7 @@ def autopsy_application(
         resume_text=ctx["resume_text"],
         job_description=ctx["job_description"],
         rejection_feedback=application.notes or "",
+        status=application.status or "rejected",
     )
 
 

@@ -20,3 +20,24 @@ class ApplicationAutopsyServiceTests(TestCase):
         self.assertEqual(48, autopsy["recovery_time_hours"])
         self.assertIn("recommended_blueprint", autopsy)
         self.assertIn("slug", autopsy["recommended_blueprint"])
+
+    def test_autopsy_supports_pre_mortem_and_growth_url(self):
+        resume = "Frontend engineer with React."
+        jd = "Backend Engineer: Must have production Docker and FastAPI experience."
+        res = run_application_autopsy(resume, jd, status="applied")
+        self.assertEqual("pre_mortem", res["mode"])
+        self.assertEqual("HIGH", res["severity"])
+        self.assertEqual("docker", res["missing_skill"])
+        self.assertIn("growth_url", res["recommended_blueprint"])
+        self.assertIn("/growth?skill=", res["recommended_blueprint"]["growth_url"])
+        self.assertEqual("/growth?skill=docker", res["recommended_blueprint"]["growth_url"])
+
+    def test_autopsy_supports_post_mortem_for_rejected(self):
+        resume = "Frontend engineer with React."
+        jd = "Backend Engineer: Must have production Docker experience."
+        res = run_application_autopsy(resume, jd, status="rejected")
+        self.assertEqual("post_mortem", res["mode"])
+        self.assertEqual("CRITICAL", res["severity"])
+        self.assertEqual("docker", res["missing_skill"])
+        self.assertIn("growth_url", res["recommended_blueprint"])
+        self.assertEqual("/growth?skill=docker", res["recommended_blueprint"]["growth_url"])
