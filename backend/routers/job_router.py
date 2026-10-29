@@ -1,19 +1,88 @@
 from datetime import datetime, timezone
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from models.database import get_db
 from models.application_model import Application
 from models.job_model import Job
+from models.match_model import MatchResult
+from models.resume_model import Resume
 from models.user_job_model import UserJob
 from models.schemas import JobResponseModel
 from models.user_model import User
-from utils.auth import get_current_user
+from services.matching_service import match_resume_to_job
 from services.user_job_service import find_user_job, set_user_job_state, should_show_user_job
+from utils.auth import get_current_user
 
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
+
+
+class CustomJobRequest(BaseModel):
+    title: str | None = None
+    company: str | None = None
+    description: str
+    location: str | None = "Remote"
+    url: str | None = None
+
+
+@router.post("/custom", response_model=JobResponseModel)
+def add_custom_job(
+    request: CustomJobRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    desc = (request.description or "").strip()
+    if not desc:
+        raise HTTPException(status_code=400, detail="Job description text is required.")
+
+    title = (request.title or "").strip() or "Software Engineer"
+    company = (request.company or "").strip() or "Target Company"
+    location = (request.location or "").strip() or "Remote"
+
+    job_id = str(uuid4())
+    job = Job(
+        id=job_id,
+        title=title,
+        company=company,
+        location=location,
+        employment_type="Full-time",
+        experience_level="Entry level",
+        description=desc,
+        url=request.url or f"https://custom-job.local/{job_id}",
+        source="Direct Paste",
+        verification_status="verified_user",
+        fetched_at=datetime.now(timezone.utc),
+    )
+    db.add(job)
+    user_job = set_user_job_state(db, current_user.id, job.id, "saved")
+    db.commit()
+    db.refresh(job)
+
+    # Automatically run match and 100-pt ATS diagnostic against active resume
+    resume = (
+        db.query(Resume)
+        .filter(Resume.user_id == current_user.id)
+        .order_by(Resume.created_at.desc())
+        .first()
+    )
+    if resume and resume.raw_text:
+        analysis = match_resume_to_job(resume.raw_text, job.description, job_title=job.title)
+        match = MatchResult(
+            id=str(uuid4()),
+            user_id=current_user.id,
+            resume_id=resume.id,
+            job_id=job.id,
+            eligible=analysis["eligibility_status"] == "eligible",
+            **analysis,
+        )
+        db.add(match)
+        db.commit()
+
+    return _job_response(job, user_job.state)
 
 
 @router.get("/all", response_model=list[JobResponseModel])
