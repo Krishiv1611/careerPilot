@@ -12,6 +12,18 @@ FLUFF_CATALOG = {
     "go-getter": "Replace with proactive architectural contributions",
 }
 
+STAR_WORD_REPLACEMENTS = {
+    "hardworking": "high-impact",
+    "passionate": "project-focused",
+    "self-starter": "autonomous contributor",
+    "team player": "cross-functional collaborator",
+    "detail-oriented": "quality-driven",
+    "quick learner": "rapidly adaptable",
+    "results-driven": "metrics-driven",
+    "enthusiastic": "domain-focused",
+    "go-getter": "proactive problem-solver",
+}
+
 HIGH_VALUE_TECH = [
     "python", "fastapi", "docker", "kubernetes", "postgresql", "redis", "aws",
     "react", "typescript", "graphql", "kafka", "ci/cd", "microservices"
@@ -39,8 +51,9 @@ def analyze_recruiter_xray(resume_text: str, job_description: str = "") -> dict:
             end = min(len(resume_text), m.end() + 25)
             fluff_found.append({
                 "word": word,
-                "context": "..." + resume_text[start:end].strip() + "...",
+                "context": "..." + (resume_text or "")[start:end].strip() + "...",
                 "replacement": replacement,
+                "star_alternative": STAR_WORD_REPLACEMENTS.get(word, "high-impact"),
             })
 
     # 2. Extract Instant Green Flags
@@ -74,11 +87,46 @@ def analyze_recruiter_xray(resume_text: str, job_description: str = "") -> dict:
     screen_prob = max(15, min(95, score))
 
     if screen_prob >= 75:
-        verdict = f"High Screen Probability ({screen_prob}%): Immediate technical authority, crisp bullets, clear impact signals."
+        hiring_manager_verdict = f"High Screen Probability ({screen_prob}%): Immediate technical authority, crisp bullets, clear impact signals."
     elif screen_prob >= 50:
-        verdict = f"Moderate Screen Probability ({screen_prob}%): Solid baseline, but eliminate fluff and quantify top bullets to guarantee screen."
+        hiring_manager_verdict = f"Moderate Screen Probability ({screen_prob}%): Solid baseline, but eliminate fluff and quantify top bullets to guarantee screen."
     else:
-        verdict = f"Low Screen Probability ({screen_prob}%): Risk of immediate pass. Heavy buzzword density or unquantified claims."
+        hiring_manager_verdict = f"Low Screen Probability ({screen_prob}%): Risk of immediate pass. Heavy buzzword density or unquantified claims."
+
+    # 5. Screener and Tech Lead Personas
+    if screen_prob >= 75:
+        screener_verdict = f"PASSED (Instant Callback): Rapid 6-second keyword scan identified {len(green_flags)} high-priority stack matches ({', '.join(green_flags[:4])}). Bullet structure enables clean glance velocity with minimal fluff."
+    elif screen_prob >= 50:
+        screener_verdict = f"BORDERLINE (Manual Review Needed): Found {len(green_flags)} keyword matches, but {len(fluff_found)} buzzword(s) or formatting friction could trigger a quick rejection in high-volume queues."
+    else:
+        screener_verdict = f"DISQUALIFY / PASS OVER: Low instant keyword density ({len(green_flags)} matches) and high buzzword clutter. Fails initial 6-second recruiter ATS glance."
+
+    if has_metrics and len(green_flags) >= 2:
+        tech_lead_verdict = f"STRONG TECHNICAL RIGOR: Quantified engineering claims and production stack depth ({', '.join(green_flags[:3])}). Demonstrates systems thinking beyond classroom exercises."
+    elif has_metrics or len(green_flags) >= 2:
+        tech_lead_verdict = f"MODERATE RIGOR (Needs Depth): Recognizable engineering stack, but lacks depth in scale, latency, test coverage, or architectural tradeoffs. Add quantifiable system outcomes."
+    else:
+        tech_lead_verdict = "INSUFFICIENT DEPTH: Lacks engineering metrics, system scale indicators, or architectural evidence. High skepticism of production readiness."
+
+    reviewer_personas = {
+        "screener_verdict": screener_verdict,
+        "hiring_manager_verdict": hiring_manager_verdict,
+        "tech_lead_verdict": tech_lead_verdict,
+    }
+
+    # 6. Generate Remediated Text Preview with STAR Alternatives
+    remediated_text = resume_text or ""
+    sorted_replacements = sorted(STAR_WORD_REPLACEMENTS.items(), key=lambda x: len(x[0]), reverse=True)
+    for word, replacement in sorted_replacements:
+        pattern = r"\b" + re.escape(word) + r"\b"
+        def _swap(match, rep=replacement):
+            orig = match.group(0)
+            if orig.isupper():
+                return rep.upper()
+            elif orig[0].isupper():
+                return rep.capitalize()
+            return rep
+        remediated_text = re.sub(pattern, _swap, remediated_text, flags=re.IGNORECASE)
 
     visual_hotspots = [
         {"zone": "Header & Target Title", "weight": "High (Sec 0-1)", "guidance": "Recruiter validates role match immediately"},
@@ -87,7 +135,9 @@ def analyze_recruiter_xray(resume_text: str, job_description: str = "") -> dict:
     ]
 
     return {
-        "hiring_manager_verdict": verdict,
+        "hiring_manager_verdict": hiring_manager_verdict,
+        "reviewer_personas": reviewer_personas,
+        "remediated_text_preview": remediated_text,
         "screen_probability": screen_prob,
         "visual_hotspots": visual_hotspots,
         "fluff_words_detected": fluff_found,

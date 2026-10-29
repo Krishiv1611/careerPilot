@@ -39,3 +39,15 @@ class RecruiterXRayServiceTests(TestCase):
         self.assertGreaterEqual(result["screen_probability"], 80)
         self.assertTrue(any("FastAPI" in g for g in result["instant_green_flags"]))
         self.assertIn("High", result["hiring_manager_verdict"])
+
+    def test_recruiter_xray_provides_three_reviewer_personas_and_remediated_preview(self):
+        resume = "I am a hardworking and passionate student. Experienced with Python, FastAPI, and Docker."
+        jd = "Seeking Backend Engineer with FastAPI and Docker."
+        result = analyze_recruiter_xray(resume, jd)
+        self.assertIn("reviewer_personas", result)
+        self.assertIn("screener_verdict", result["reviewer_personas"])
+        self.assertIn("hiring_manager_verdict", result["reviewer_personas"])
+        self.assertIn("tech_lead_verdict", result["reviewer_personas"])
+        self.assertIn("remediated_text_preview", result)
+        self.assertNotIn("hardworking", result["remediated_text_preview"].lower())
+

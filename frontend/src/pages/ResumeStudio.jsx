@@ -751,6 +751,46 @@ const FLUFF_CATALOG = {
   'go-getter': "Replace with proactive architectural contributions",
 };
 
+const STAR_WORD_REPLACEMENTS = {
+  hardworking: 'high-impact',
+  passionate: 'project-focused',
+  'self-starter': 'autonomous contributor',
+  'team player': 'cross-functional collaborator',
+  'detail-oriented': 'quality-driven',
+  'quick learner': 'rapidly adaptable',
+  'results-driven': 'metrics-driven',
+  enthusiastic: 'domain-focused',
+  'go-getter': 'proactive problem-solver',
+};
+
+const autoRemediateFluffText = (text, xrayData) => {
+  let updated = text || '';
+  const detected = xrayData?.fluff_words_detected || [];
+
+  if (xrayData?.remediated_text_preview && detected.length > 0) {
+    return xrayData.remediated_text_preview;
+  }
+
+  const catalog = { ...STAR_WORD_REPLACEMENTS };
+  for (const item of detected) {
+    if (item.word && item.star_alternative) {
+      catalog[item.word.toLowerCase()] = item.star_alternative;
+    }
+  }
+
+  const sortedWords = Object.keys(catalog).sort((a, b) => b.length - a.length);
+  for (const word of sortedWords) {
+    const rep = catalog[word];
+    const regex = new RegExp(`\\b${word.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'gi');
+    updated = updated.replace(regex, (match) => {
+      if (match === match.toUpperCase()) return rep.toUpperCase();
+      if (match[0] === match[0].toUpperCase()) return rep.charAt(0).toUpperCase() + rep.slice(1);
+      return rep;
+    });
+  }
+  return updated;
+};
+
 const renderFluffAnnotatedText = (text, fluffCatalog = FLUFF_CATALOG) => {
   if (!text) return '\u00A0';
   const words = Object.keys(fluffCatalog);
@@ -958,25 +998,112 @@ const ScreenProbabilityDial = ({ score = 65 }) => {
 };
 
 const HiringManagerVerdictBanner = ({ xrayData }) => {
+  const [selectedPersona, setSelectedPersona] = useState('screener');
   const score = xrayData?.screen_probability ?? 65;
-  const verdict = xrayData?.hiring_manager_verdict || 'Scanning resume for 6-second recruiter first impression...';
   const greenFlags = xrayData?.instant_green_flags || [];
   const redFlags = xrayData?.instant_red_flags || [];
 
+  const personas = {
+    screener: {
+      name: 'Recruiter Screener',
+      title: 'Recruiter Screener 6-Second Verdict',
+      badge: 'Initial 6s Gatekeeper',
+      subtitle: 'Keyword frequency, bullet density, and rapid glance velocity',
+      verdict:
+        xrayData?.reviewer_personas?.screener_verdict ||
+        (score >= 75
+          ? `PASSED (Instant Callback): Rapid 6-second keyword scan identified ${greenFlags.length} high-priority stack matches. Bullet structure enables clean glance velocity with minimal fluff.`
+          : score >= 50
+            ? `BORDERLINE (Manual Review Needed): Found ${greenFlags.length} keyword matches, but buzzwords or formatting friction could trigger a quick rejection in high-volume queues.`
+            : `DISQUALIFY / PASS OVER: Low instant keyword density (${greenFlags.length} matches) and high buzzword clutter. Fails initial 6-second recruiter ATS glance.`),
+    },
+    hiring_manager: {
+      name: 'Hiring Manager',
+      title: 'Hiring Manager 6-Second Verdict',
+      badge: 'Team Lead & Role Impact',
+      subtitle: 'Role-impact, production ownership, and quantifiable outcomes',
+      verdict:
+        xrayData?.reviewer_personas?.hiring_manager_verdict ||
+        xrayData?.hiring_manager_verdict ||
+        'Scanning resume for 6-second role impact and team execution signals...',
+    },
+    tech_lead: {
+      name: 'Tech Lead',
+      title: 'Tech Lead 6-Second Verdict',
+      badge: 'Systems Depth & Rigor',
+      subtitle: 'Code depth, systems architectural skepticism, and scale metrics',
+      verdict:
+        xrayData?.reviewer_personas?.tech_lead_verdict ||
+        (greenFlags.length >= 2
+          ? `STRONG TECHNICAL RIGOR: Quantified engineering claims and production stack depth (${greenFlags.slice(0, 3).join(', ')}). Demonstrates systems thinking beyond classroom exercises.`
+          : `INSUFFICIENT DEPTH: Lacks engineering metrics, system scale indicators, or architectural evidence. High skepticism of production readiness.`),
+    },
+  };
+
+  const activePersona = personas[selectedPersona] || personas.screener;
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center border-b border-slate-100 pb-4">
+      {/* Archetype Selector Tabs */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-md bg-cyan-100 px-2 py-0.5 text-xs font-bold text-cyan-900 border border-cyan-200">
+            👁️ Recruiter 6-Sec X-Ray
+          </span>
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            Reviewer Archetypes
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1 rounded-xl bg-slate-100 p-1 border border-slate-200">
+          <button
+            type="button"
+            onClick={() => setSelectedPersona('screener')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+              selectedPersona === 'screener'
+                ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-950'
+            }`}
+          >
+            🔍 Recruiter Screener
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedPersona('hiring_manager')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+              selectedPersona === 'hiring_manager'
+                ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-950'
+            }`}
+          >
+            💼 Hiring Manager
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedPersona('tech_lead')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+              selectedPersona === 'tech_lead'
+                ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-950'
+            }`}
+          >
+            💻 Tech Lead
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-col justify-between gap-4 lg:flex-row lg:items-center border-b border-slate-100 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-md bg-cyan-100 px-2 py-0.5 text-xs font-bold text-cyan-900 border border-cyan-200">
-              👁️ Recruiter 6-Sec X-Ray
-            </span>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Cognitive Scan Verdict
+            <h2 className="text-base font-black text-slate-950">{activePersona.title}</h2>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 border border-slate-200">
+              {activePersona.badge}
             </span>
           </div>
-          <h2 className="mt-1 text-base font-black text-slate-950">Hiring Manager 6-Second Verdict</h2>
-          <p className="mt-1 text-xs leading-5 text-slate-600 max-w-xl">{verdict}</p>
+          <p className="mt-0.5 text-[11px] font-medium text-slate-400">{activePersona.subtitle}</p>
+          <p className="mt-2 text-xs leading-5 text-slate-700 max-w-xl font-medium bg-slate-50 border border-slate-200/80 rounded-xl p-3">
+            {activePersona.verdict}
+          </p>
         </div>
         <ScreenProbabilityDial score={score} />
       </div>
@@ -1039,7 +1166,9 @@ const RecruiterXRayView = ({
   content,
   xrayData,
   onSwitchToEditor,
+  onAutoRemediate,
 }) => {
+  const [heatmapEnabled, setHeatmapEnabled] = useState(true);
   const hotspots = parseResumeForHotspots(content);
   const fluffWords = xrayData?.fluff_words_detected || [];
   const fluffCatalog = { ...FLUFF_CATALOG };
@@ -1051,32 +1180,70 @@ const RecruiterXRayView = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-cyan-50/70 border border-cyan-200 px-3.5 py-2.5 text-xs text-cyan-950">
-        <span className="font-bold flex items-center gap-1.5">
-          <Eye className="h-4 w-4 text-cyan-700" />
-          3 Visual Scan Hotspots (Where recruiters look in first 6 seconds):
-        </span>
-        <div className="flex flex-wrap gap-2 text-[11px]">
-          <span className="rounded-md bg-white border border-cyan-300 px-2 py-0.5 font-bold text-cyan-800">
-            1. Header & Title (Sec 0-1)
+      {/* F-Pattern Heatmap Simulation Control & Legend */}
+      <div className="rounded-xl border border-cyan-200 bg-cyan-50/70 p-3.5 space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-md bg-cyan-600 px-2 py-0.5 text-xs font-bold text-white shadow-2xs">
+              <Eye className="h-3.5 w-3.5" />
+              F-Pattern Eye-Tracking Heatmap
+            </span>
+            <span className="text-xs font-semibold text-cyan-900">
+              Nielsen Norman 6-Second Ocular Trajectory Simulation
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setHeatmapEnabled((prev) => !prev)}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+              heatmapEnabled
+                ? 'border-cyan-400 bg-white text-cyan-900 shadow-2xs'
+                : 'border-slate-300 bg-slate-100 text-slate-600'
+            }`}
+          >
+            <span className={`h-2 w-2 rounded-full ${heatmapEnabled ? 'bg-rose-500 animate-pulse' : 'bg-slate-400'}`} />
+            Heatmap Overlay: {heatmapEnabled ? 'Active' : 'Off'}
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="inline-flex items-center gap-1 rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 font-bold text-rose-900">
+            🔴 100% Gaze (Sec 0-1) Header Bar
           </span>
-          <span className="rounded-md bg-white border border-cyan-300 px-2 py-0.5 font-bold text-cyan-800">
-            2. Top 2 Bullets (Sec 2-4)
+          <span className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 font-bold text-amber-900">
+            🟠 75% Gaze (Sec 2-4) Top 2 Bullets
           </span>
-          <span className="rounded-md bg-white border border-cyan-300 px-2 py-0.5 font-bold text-cyan-800">
-            3. Skills Matrix (Sec 5-6)
+          <span className="inline-flex items-center gap-1 rounded-md border border-cyan-300 bg-cyan-50 px-2 py-0.5 font-bold text-cyan-900">
+            🟡 50% Gaze (Sec 5-6) Skills Stem
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-slate-100 px-2 py-0.5 font-bold text-slate-600">
+            🔵 &lt;15% Gaze (Skipped in 6s) Cold Drop-off
           </span>
         </div>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-[#fffefa] p-4 sm:p-5 font-mono text-xs sm:text-sm leading-6 text-slate-800 space-y-4">
-        {/* Hotspot 1: Header */}
-        <div className="rounded-xl border-2 border-cyan-400 bg-cyan-50/20 p-3.5 shadow-[0_0_15px_rgba(6,182,212,0.12)] ring-1 ring-cyan-300/40">
-          <div className="mb-2 flex items-center justify-between border-b border-cyan-200/60 pb-1.5 font-sans">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-cyan-100 border border-cyan-300 px-2 py-0.5 text-[11px] font-black text-cyan-900 uppercase tracking-wider">
-              🎯 Hotspot 1: Header & Target Title (Sec 0-1)
-            </span>
-            <span className="text-[11px] font-semibold text-cyan-700">Role Match Skim</span>
+        {/* Hotspot 1: Header (100% Gaze Intensity) */}
+        <div
+          className={`rounded-xl border-2 p-3.5 transition-all ${
+            heatmapEnabled
+              ? 'border-rose-400 border-l-8 border-l-rose-500 bg-gradient-to-r from-rose-50/40 via-cyan-50/10 to-transparent shadow-[0_0_15px_rgba(244,63,94,0.12)] ring-1 ring-rose-300/40'
+              : 'border-cyan-400 bg-cyan-50/20 ring-1 ring-cyan-300/40'
+          }`}
+        >
+          <div className="mb-2 flex flex-wrap items-center justify-between border-b border-rose-200/60 pb-1.5 font-sans gap-2">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-rose-100 border border-rose-300 px-2 py-0.5 text-[11px] font-black text-rose-900 uppercase tracking-wider">
+                <span className="h-2 w-2 rounded-full bg-rose-600 animate-pulse" />
+                🎯 Hotspot 1: Header & Target Title (Sec 0-1)
+              </span>
+              {heatmapEnabled && (
+                <span className="rounded bg-rose-500 px-1.5 py-0.5 text-[10px] font-black text-white uppercase tracking-wider">
+                  F-Top Bar: 100% Heat
+                </span>
+              )}
+            </div>
+            <span className="text-[11px] font-semibold text-rose-800">Role Match Skim</span>
           </div>
           <div className="space-y-1">
             {hotspots.headerLines.map((line, idx) => (
@@ -1087,13 +1254,27 @@ const RecruiterXRayView = ({
           </div>
         </div>
 
-        {/* Hotspot 3: Technical Skills Matrix */}
+        {/* Hotspot 3: Technical Skills Matrix (50% Gaze Intensity) */}
         {hotspots.skillsLines.length > 0 && (
-          <div className="rounded-xl border-2 border-cyan-400 bg-cyan-50/20 p-3.5 shadow-[0_0_15px_rgba(6,182,212,0.12)] ring-1 ring-cyan-300/40">
-            <div className="mb-2 flex items-center justify-between border-b border-cyan-200/60 pb-1.5 font-sans">
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-cyan-100 border border-cyan-300 px-2 py-0.5 text-[11px] font-black text-cyan-900 uppercase tracking-wider">
-                🛠️ Hotspot 3: Technical Skills Matrix (Sec 5-6)
-              </span>
+          <div
+            className={`rounded-xl border-2 p-3.5 transition-all ${
+              heatmapEnabled
+                ? 'border-cyan-400 border-l-8 border-l-cyan-500 bg-gradient-to-r from-cyan-50/30 to-transparent shadow-[0_0_15px_rgba(6,182,212,0.12)] ring-1 ring-cyan-300/40'
+                : 'border-cyan-400 bg-cyan-50/20 ring-1 ring-cyan-300/40'
+            }`}
+          >
+            <div className="mb-2 flex flex-wrap items-center justify-between border-b border-cyan-200/60 pb-1.5 font-sans gap-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-cyan-100 border border-cyan-300 px-2 py-0.5 text-[11px] font-black text-cyan-900 uppercase tracking-wider">
+                  <span className="h-2 w-2 rounded-full bg-cyan-600" />
+                  🛠️ Hotspot 3: Technical Skills Matrix (Sec 5-6)
+                </span>
+                {heatmapEnabled && (
+                  <span className="rounded bg-cyan-600 px-1.5 py-0.5 text-[10px] font-black text-white uppercase tracking-wider">
+                    F-Scan: 50% Heat
+                  </span>
+                )}
+              </div>
               <span className="text-[11px] font-semibold text-cyan-700">Required Stack Verification</span>
             </div>
             <div className="space-y-1">
@@ -1106,14 +1287,28 @@ const RecruiterXRayView = ({
           </div>
         )}
 
-        {/* Hotspot 2: Top 2 Work/Project Bullets */}
+        {/* Hotspot 2: Top 2 Work/Project Bullets (75% Gaze Intensity) */}
         {hotspots.topBulletLines.length > 0 && (
-          <div className="rounded-xl border-2 border-cyan-400 bg-cyan-50/20 p-3.5 shadow-[0_0_15px_rgba(6,182,212,0.12)] ring-1 ring-cyan-300/40">
-            <div className="mb-2 flex items-center justify-between border-b border-cyan-200/60 pb-1.5 font-sans">
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-cyan-100 border border-cyan-300 px-2 py-0.5 text-[11px] font-black text-cyan-900 uppercase tracking-wider">
-                ⚡ Hotspot 2: Top 2 Work/Project Bullets (Sec 2-4)
-              </span>
-              <span className="text-[11px] font-semibold text-cyan-700">Quantified Technical Impact</span>
+          <div
+            className={`rounded-xl border-2 p-3.5 transition-all ${
+              heatmapEnabled
+                ? 'border-amber-400 border-l-8 border-l-amber-500 bg-gradient-to-r from-amber-50/40 via-cyan-50/10 to-transparent shadow-[0_0_15px_rgba(245,158,11,0.12)] ring-1 ring-amber-300/40'
+                : 'border-cyan-400 bg-cyan-50/20 ring-1 ring-cyan-300/40'
+            }`}
+          >
+            <div className="mb-2 flex flex-wrap items-center justify-between border-b border-amber-200/60 pb-1.5 font-sans gap-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-black text-amber-900 uppercase tracking-wider">
+                  <span className="h-2 w-2 rounded-full bg-amber-600" />
+                  ⚡ Hotspot 2: Top 2 Work/Project Bullets (Sec 2-4)
+                </span>
+                {heatmapEnabled && (
+                  <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-black text-white uppercase tracking-wider">
+                    F-Mid Stem: 75% Heat
+                  </span>
+                )}
+              </div>
+              <span className="text-[11px] font-semibold text-amber-700">Quantified Technical Impact</span>
             </div>
             <div className="space-y-1.5">
               {hotspots.topBulletLines.map((line, idx) => (
@@ -1125,20 +1320,29 @@ const RecruiterXRayView = ({
           </div>
         )}
 
-        {/* Other Resume Lines */}
+        {/* Other Resume Lines (<15% Gaze - Cold Drop-off) */}
         {hotspots.otherLines.length > 0 && (
           <div className="space-y-1 pt-2 border-t border-slate-200">
-            <p className="text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400 mb-2">
-              Additional Resume Sections (Secondary Skim)
-            </p>
-            {hotspots.otherLines.map((line, idx) => (
-              <div
-                key={idx}
-                className={`whitespace-pre-wrap ${line.isHeading ? 'font-sans font-bold text-slate-900 mt-3 pt-1 text-xs uppercase tracking-wider' : ''}`}
-              >
-                {line.isBlank ? '\u00A0' : renderFluffAnnotatedText(line.text, fluffCatalog)}
-              </div>
-            ))}
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">
+                Additional Resume Sections (Secondary Skim)
+              </p>
+              {heatmapEnabled && (
+                <span className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                  Cold Drop-off Zone (&lt;15% glance time in 6-sec skim)
+                </span>
+              )}
+            </div>
+            <div className={`space-y-1 rounded-lg ${heatmapEnabled ? 'border-l-4 border-l-slate-300 bg-slate-50/50 p-2.5 opacity-85' : ''}`}>
+              {hotspots.otherLines.map((line, idx) => (
+                <div
+                  key={idx}
+                  className={`whitespace-pre-wrap ${line.isHeading ? 'font-sans font-bold text-slate-900 mt-3 pt-1 text-xs uppercase tracking-wider' : ''}`}
+                >
+                  {line.isBlank ? '\u00A0' : renderFluffAnnotatedText(line.text, fluffCatalog)}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -1155,29 +1359,45 @@ const RecruiterXRayView = ({
                 Fluff Words Detected — Actionable STAR Replacements
               </h3>
             </div>
-            <button
-              type="button"
-              onClick={onSwitchToEditor}
-              className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-amber-700 cursor-pointer"
-            >
-              Fix in Candidate Editor
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={onAutoRemediate}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 px-3 py-1.5 text-xs font-bold text-white shadow-xs cursor-pointer transition"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                ⚡ Auto-Remediate Fluff
+              </button>
+              <button
+                type="button"
+                onClick={onSwitchToEditor}
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-xs font-bold text-amber-900 hover:bg-amber-100 cursor-pointer"
+              >
+                Fix in Candidate Editor
+              </button>
+            </div>
           </div>
           <div className="mt-3 divide-y divide-amber-200/70">
-            {fluffWords.map((item, idx) => (
-              <div key={idx} className="py-2.5 first:pt-0 last:pb-0">
-                <div className="flex items-baseline gap-2">
-                  <span className="rounded bg-amber-200 px-1.5 py-0.5 text-xs font-bold text-amber-950">
-                    "{item.word}"
-                  </span>
-                  <span className="text-xs text-amber-900/80 italic">in {item.context}</span>
+            {fluffWords.map((item, idx) => {
+              const starAlt = item.star_alternative || STAR_WORD_REPLACEMENTS[item.word?.toLowerCase()] || 'high-impact';
+              return (
+                <div key={idx} className="py-2.5 first:pt-0 last:pb-0">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <span className="rounded bg-amber-200 px-1.5 py-0.5 text-xs font-bold text-amber-950">
+                      "{item.word}"
+                    </span>
+                    <span className="text-xs text-amber-900/80 italic">in {item.context}</span>
+                    <span className="rounded-full bg-emerald-100 border border-emerald-300 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                      STAR Swap: &rarr; "{starAlt}"
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs font-medium text-amber-950">
+                    <span className="font-bold text-amber-900">Recommended fix: </span>
+                    {item.replacement}
+                  </p>
                 </div>
-                <p className="mt-1 text-xs font-medium text-amber-950">
-                  <span className="font-bold text-amber-900">Recommended fix: </span>
-                  {item.replacement}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ) : (
@@ -1219,9 +1439,24 @@ const ResumeCanvas = ({
   isXRayLoading,
 }) => {
   const textareaRef = useRef(null);
+  const [remediateToast, setRemediateToast] = useState('');
 
   const triggerEnhance = () => {
     onEnhanceBullet(textareaRef.current);
+  };
+
+  const handleAutoRemediateFluff = () => {
+    const fluffCount = xrayData?.fluff_words_detected?.length || 0;
+    if (!fluffCount && !xrayData?.remediated_text_preview) return;
+
+    const newText = autoRemediateFluffText(editorContent, xrayData);
+    setEditorContent(newText);
+    setRemediateToast(
+      `⚡ Auto-remediated ${fluffCount || 'detected'} buzzwords with active STAR alternatives! Live score recalculating...`
+    );
+    setTimeout(() => {
+      setRemediateToast('');
+    }, 4500);
   };
 
   return (
@@ -1292,13 +1527,25 @@ const ResumeCanvas = ({
             </button>
           )}
           {lensMode === 'xray' && (
-            <button
-              type="button"
-              onClick={() => setLensMode('candidate')}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
-            >
-              📝 Candidate Editor
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleAutoRemediateFluff}
+                disabled={!xrayData?.fluff_words_detected?.length && !xrayData?.remediated_text_preview}
+                title="1-Click replace detected fluff buzzwords with STAR alternatives"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-500 hover:bg-amber-600 px-2.5 py-1.5 text-xs font-bold text-white shadow-xs transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                ⚡ Auto-Remediate Fluff
+              </button>
+              <button
+                type="button"
+                onClick={() => setLensMode('candidate')}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                📝 Candidate Editor
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -1318,6 +1565,22 @@ const ResumeCanvas = ({
         </div>
       )}
 
+      {remediateToast && (
+        <div className="mt-3 flex items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-3.5 py-2.5 text-xs font-bold text-emerald-900 shadow-xs">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>{remediateToast}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRemediateToast('')}
+            className="text-emerald-700 hover:text-emerald-950 cursor-pointer"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       {lensMode === 'xray' ? (
         <div className="mt-4 space-y-5">
           <HiringManagerVerdictBanner xrayData={xrayData} />
@@ -1325,6 +1588,7 @@ const ResumeCanvas = ({
             content={editorContent}
             xrayData={xrayData}
             onSwitchToEditor={() => setLensMode('candidate')}
+            onAutoRemediate={handleAutoRemediateFluff}
           />
         </div>
       ) : (
