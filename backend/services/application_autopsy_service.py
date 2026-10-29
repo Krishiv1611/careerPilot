@@ -58,6 +58,8 @@ def run_application_autopsy(
             recommended_bp = dict(bp)
             break
 
+    severity_tag = "FATAL" if is_rejected else ("HIGH_RISK" if missing_skill in jd_lower else "MODERATE_RISK")
+
     if mode == "post_mortem":
         fatal_blocker = f"Missing core requirement: {missing_skill.upper()} was mandated by the JD but absent on resume"
         why_it_disqualified = (
@@ -76,6 +78,7 @@ def run_application_autopsy(
     return {
         "mode": mode,
         "severity": severity,
+        "severity_tag": severity_tag,
         "missing_skill": missing_skill,
         "fatal_blocker": fatal_blocker,
         "why_it_disqualified": why_it_disqualified,
