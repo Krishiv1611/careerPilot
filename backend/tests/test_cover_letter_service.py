@@ -18,6 +18,21 @@ class CoverLetterServiceTests(TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
+    def test_generates_three_distinct_outreach_channel_variants(self):
+        pack = generate_tailored_cover_letter(
+            "Taylor Swift",
+            "Python, FastAPI, Docker",
+            "Backend Engineer",
+            "Spotify",
+            "FastAPI and Docker",
+        )
+        self.assertIn("alumni_casual_note", pack)
+        self.assertIn("cold_email_pitch", pack)
+        self.assertIn("subject", pack["cold_email_pitch"])
+        self.assertIn("body", pack["cold_email_pitch"])
+        self.assertLess(len(pack["alumni_casual_note"]), 200)
+        self.assertLess(len(pack["outreach_note_300"]), 300)
+
     def test_generates_truth_guarded_application_pack_with_strict_character_limit(self):
         resume = "Alex Rivera | Software Engineer. Built FastAPI microservices and PostgreSQL database with Docker."
         pack = generate_tailored_cover_letter(
@@ -55,6 +70,8 @@ class CoverLetterServiceTests(TestCase):
             "Looking for infrastructure specialists.",
         )
         self.assertLess(len(pack["outreach_note_300"]), 300)
+        self.assertLess(len(pack["alumni_casual_note"]), 200)
+        self.assertIn("cold_email_pitch", pack)
         self.assertEqual(pack["character_count"], len(pack["outreach_note_300"]))
         self.assertIn("cover_letter_text", pack)
         self.assertGreaterEqual(len(pack["screening_answers"]), 2)
@@ -74,7 +91,12 @@ class CoverLetterServiceTests(TestCase):
         data = response.json()
         self.assertIn("cover_letter_text", data)
         self.assertIn("outreach_note_300", data)
+        self.assertIn("alumni_casual_note", data)
+        self.assertIn("cold_email_pitch", data)
+        self.assertIn("subject", data["cold_email_pitch"])
+        self.assertIn("body", data["cold_email_pitch"])
         self.assertIn("character_count", data)
         self.assertIn("screening_answers", data)
         self.assertLess(len(data["outreach_note_300"]), 300)
+        self.assertLess(len(data["alumni_casual_note"]), 200)
 

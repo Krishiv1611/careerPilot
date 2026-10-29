@@ -1322,6 +1322,7 @@ export const ApplicationPackModal = ({ job, application, onClose }) => {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [copiedKey, setCopiedKey] = useState(null);
   const [screeningDrawerOpen, setScreeningDrawerOpen] = useState(true);
+  const [outreachTab, setOutreachTab] = useState('linkedin');
 
   useEffect(() => {
     let active = true;
@@ -1529,35 +1530,192 @@ export const ApplicationPackModal = ({ job, application, onClose }) => {
               </pre>
             </div>
 
-            {/* LinkedIn Connection Note */}
+            {/* Multi-Channel Outreach Toolkit */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div>
                   <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                     <Send className="h-4 w-4 text-slate-600" />
-                    LinkedIn Recruiter Connection Note
+                    Multi-Channel Outreach Toolkit
                   </h3>
-                  <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
-                    Strictly &lt; 300 chars
-                  </span>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    High-conversion outreach tailored for each networking and recruiting channel.
+                  </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono font-bold text-emerald-700">
-                    {packData.character_count || packData.outreach_note_300.length} / 300 chars
-                  </span>
+
+                {/* Tab Switcher */}
+                <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-slate-100 p-1">
                   <button
                     type="button"
-                    onClick={() => copyToClipboard(packData.outreach_note_300, 'linkedin')}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                    onClick={() => setOutreachTab('linkedin')}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                      outreachTab === 'linkedin'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
                   >
-                    {copiedKey === 'linkedin' ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5 text-slate-500" />}
-                    {copiedKey === 'linkedin' ? 'Copied Note' : 'Copy Note'}
+                    💼 LinkedIn Note (&lt;300)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOutreachTab('alumni')}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                      outreachTab === 'alumni'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    🎓 Alumni Chat (&lt;200)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOutreachTab('cold_email')}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                      outreachTab === 'cold_email'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    ✉️ Cold Email Pitch
                   </button>
                 </div>
               </div>
-              <p className="mt-4 rounded-xl border border-slate-100 bg-[#f8fafc] p-3.5 font-mono text-xs leading-relaxed text-slate-800">
-                {packData.outreach_note_300}
-              </p>
+
+              {/* Tab 1: LinkedIn Note */}
+              {outreachTab === 'linkedin' && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                        Strictly &lt; 300 chars
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        Fits standard LinkedIn connection invitation limit
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-mono font-bold text-emerald-700">
+                        {(packData.outreach_note_300 || '').length} / 300 chars
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(packData.outreach_note_300, 'linkedin')}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                      >
+                        {copiedKey === 'linkedin' ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5 text-slate-500" />}
+                        {copiedKey === 'linkedin' ? 'Copied Note' : 'Copy Note'}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="rounded-xl border border-slate-100 bg-[#f8fafc] p-3.5 font-mono text-xs leading-relaxed text-slate-800">
+                    {packData.outreach_note_300}
+                  </p>
+                </div>
+              )}
+
+              {/* Tab 2: Alumni Chat */}
+              {outreachTab === 'alumni' && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[11px] font-bold text-indigo-700">
+                        Strictly &lt; 200 chars
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        Low-friction mutual alumni or peer conversation starter
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-mono font-bold text-indigo-700">
+                        {(packData.alumni_casual_note || '').length} / 200 chars
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(packData.alumni_casual_note, 'alumni')}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                      >
+                        {copiedKey === 'alumni' ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5 text-slate-500" />}
+                        {copiedKey === 'alumni' ? 'Copied Note' : 'Copy Note'}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="rounded-xl border border-slate-100 bg-[#f8fafc] p-3.5 font-mono text-xs leading-relaxed text-slate-800">
+                    {packData.alumni_casual_note}
+                  </p>
+                </div>
+              )}
+
+              {/* Tab 3: Cold Email Pitch */}
+              {outreachTab === 'cold_email' && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[11px] font-bold text-blue-700">
+                        Full InMail / Cold Email
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        2 tight paragraphs with tailored CTA
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-mono font-bold text-slate-600">
+                        {((packData.cold_email_pitch?.subject || '') + '\n\n' + (packData.cold_email_pitch?.body || '')).length} chars
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const full = `Subject: ${packData.cold_email_pitch?.subject || ''}\n\n${packData.cold_email_pitch?.body || ''}`;
+                          copyToClipboard(full, 'cold_email_full');
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                      >
+                        {copiedKey === 'cold_email_full' ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5 text-slate-500" />}
+                        {copiedKey === 'cold_email_full' ? 'Copied Full Email' : 'Copy Full Email'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Subject line box */}
+                  <div className="rounded-xl border border-slate-100 bg-[#f8fafc] p-3">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Subject Line ({(packData.cold_email_pitch?.subject || '').length} chars)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(packData.cold_email_pitch?.subject || '', 'cold_email_subj')}
+                        className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition"
+                      >
+                        {copiedKey === 'cold_email_subj' ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3 text-slate-500" />}
+                        {copiedKey === 'cold_email_subj' ? 'Copied' : 'Copy Subject'}
+                      </button>
+                    </div>
+                    <p className="font-mono text-xs font-semibold text-slate-900">
+                      {packData.cold_email_pitch?.subject}
+                    </p>
+                  </div>
+
+                  {/* Body box */}
+                  <div className="rounded-xl border border-slate-100 bg-[#f8fafc] p-3.5">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Email Body ({(packData.cold_email_pitch?.body || '').length} chars)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(packData.cold_email_pitch?.body || '', 'cold_email_body')}
+                        className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition"
+                      >
+                        {copiedKey === 'cold_email_body' ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3 text-slate-500" />}
+                        {copiedKey === 'cold_email_body' ? 'Copied' : 'Copy Body'}
+                      </button>
+                    </div>
+                    <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-slate-800">
+                      {packData.cold_email_pitch?.body}
+                    </pre>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Screening Answers Drawer */}

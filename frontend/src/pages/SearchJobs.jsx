@@ -683,7 +683,8 @@ const JobDetails = ({ job, match, saving, updatingState, matching, onSave, onTog
             type="button"
             onClick={() => onOpenPack(job)}
             className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-900 bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 transition"
-            title="1-Click Complete Application Pack"
+            title="1-Click Complete Application Pack (ATS Resume, Cover Letter, Multi-Channel Outreach Toolkit)"
+            aria-label="Open 1-Click Complete Application Pack"
           >
             📦 Application Pack
           </button>

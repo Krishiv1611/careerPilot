@@ -62,6 +62,32 @@ def generate_tailored_cover_letter(
     if len(outreach) >= 300:
         outreach = outreach[:295] + "..."
 
+    # Alumni Casual Note: Low-friction peer/alumni outreach STRICTLY under 200 characters
+    alumni_note = f"Hi! Saw your work at {comp}. As a fellow engineer working with {top_techs}, would love to connect briefly and say hello! Best, {name}"
+    if len(alumni_note) >= 200:
+        alumni_note = f"Hi! Saw your work at {comp}. Fellow engineer in {primary_tech}—would love to connect briefly! Best, {name}"
+    if len(alumni_note) >= 200:
+        alumni_note = f"Hi! Fellow engineer exploring {comp}. Would love to connect briefly and follow your updates! Best, {name}"
+    if len(alumni_note) >= 200:
+        alumni_note = f"Hi! Fellow engineer interested in {comp}. Would love to connect! Best, {name}"
+    if len(alumni_note) >= 200:
+        alumni_note = f"Hi! Would love to connect regarding {comp}. Best, {name}"
+    if len(alumni_note) >= 200:
+        alumni_note = alumni_note[:195] + "..."
+
+    # Cold Email / InMail Pitch: Complete pitch with subject line, 2 tight paragraphs & call to action
+    email_subject = f"Application: {role} at {comp} - {name}"
+    email_body = (
+        f"Hi Hiring Team at {comp},\n\n"
+        f"I recently applied for the {role} position and wanted to introduce myself directly. "
+        f"I specialize in building production-ready services using {top_techs}, with a focus on code quality, "
+        f"low latency, and reliable architecture.\n\n"
+        f"Given {comp}'s engineering standards, I would love to contribute my experience in {primary_tech} "
+        f"to your team's upcoming initiatives. Would you be open to a brief 10-minute conversation this week "
+        f"to discuss how my background aligns with your engineering roadmap?\n\n"
+        f"Best regards,\n{name}"
+    )
+
     screening_answers = [
         {
             "question": f"Why do you want to join {comp}?",
@@ -89,6 +115,12 @@ def generate_tailored_cover_letter(
     return {
         "cover_letter_text": cover_letter,
         "outreach_note_300": outreach,
+        "linkedin_connection_note": outreach,
+        "alumni_casual_note": alumni_note,
+        "cold_email_pitch": {
+            "subject": email_subject,
+            "body": email_body,
+        },
         "character_count": len(outreach),
         "screening_answers": screening_answers,
     }
