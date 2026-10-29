@@ -6,9 +6,12 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   Check,
+  ChevronDown,
+  ChevronUp,
   Columns3,
   Copy,
   Download,
+  FileText,
   List,
   Loader2,
   Send,
@@ -21,10 +24,14 @@ import {
 import {
   deleteApplication,
   downloadResumeVersion,
+  exportPdfDirect,
   generateOutreach,
   getAllApplications,
   getAllJobs,
+  getAllResumes,
   getApplicationAutopsy,
+  getApplicationPack,
+  getCandidateProfile,
   getResumeDefenseStressTest,
   updateApplicationDetails,
   updateApplicationStatus,
@@ -48,6 +55,7 @@ const Applications = () => {
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   // Outreach and analysis modals
+  const [packTarget, setPackTarget] = useState(null);
   const [outreachTarget, setOutreachTarget] = useState(null);
   const [stressTestTarget, setStressTestTarget] = useState(null);
   const [autopsyTarget, setAutopsyTarget] = useState(null);
@@ -220,6 +228,15 @@ const Applications = () => {
                         <div className="mt-3 flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100">
                           <button
                             type="button"
+                            onClick={() => setPackTarget({ job, application: app })}
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-900 bg-slate-900 px-2 py-1 text-[11px] font-bold text-white hover:bg-slate-800"
+                            title="1-Click Complete Application Pack"
+                          >
+                            📦 Application Pack
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => setOutreachTarget({ job, application: app })}
                             className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-100"
                           >
@@ -321,12 +338,21 @@ const Applications = () => {
             onRequestDelete={setPendingDeleteId}
             onDelete={removeApplication}
             onSavePlan={saveApplicationPlan}
+            onOpenPack={(job, app) => setPackTarget({ job, application: app })}
             onOpenOutreach={(job, app) => setOutreachTarget({ job, application: app })}
             onOpenStressTest={(job, app) => setStressTestTarget({ job, application: app })}
             onOpenAutopsy={(job, app) => setAutopsyTarget({ job, application: app })}
             onDownloadResume={handleDownloadSubmittedResume}
           />
         </div>
+      )}
+
+      {packTarget && (
+        <ApplicationPackModal
+          job={packTarget.job}
+          application={packTarget.application}
+          onClose={() => setPackTarget(null)}
+        />
       )}
 
       {outreachTarget && (
@@ -366,6 +392,7 @@ const ApplicationDetail = ({
   onRequestDelete,
   onDelete,
   onSavePlan,
+  onOpenPack,
   onOpenOutreach,
   onOpenStressTest,
   onOpenAutopsy,
@@ -384,6 +411,15 @@ const ApplicationDetail = ({
           <p className="mt-1 font-bold text-slate-600">{job.company || 'Company unavailable'}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => onOpenPack(job, application)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-900 bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800"
+            title="1-Click Complete Application Pack"
+          >
+            📦 Application Pack
+          </button>
+
           <button
             type="button"
             onClick={() => onOpenOutreach(job, application)}
@@ -922,6 +958,320 @@ const AutopsyDrawer = ({ job, application, onClose }) => {
                   Bridge to Growth Studio <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
+export const ApplicationPackModal = ({ job, application, onClose }) => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [packData, setPackData] = useState(null);
+  const [resumeText, setResumeText] = useState('');
+  const [candidateName, setCandidateName] = useState('Candidate');
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(null);
+  const [screeningDrawerOpen, setScreeningDrawerOpen] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadPack = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const [profile, resumes] = await Promise.all([
+          getCandidateProfile().catch(() => ({})),
+          getAllResumes().catch(() => []),
+        ]);
+
+        if (!active) return;
+
+        const targetResumeId = application?.resume_id;
+        const matchedResume = targetResumeId
+          ? resumes.find((r) => r.id === targetResumeId)
+          : resumes[0];
+        const effectiveResume = matchedResume?.raw_text || resumes[0]?.raw_text || '';
+        const name = (profile?.full_name || '').trim() ||
+          (effectiveResume ? effectiveResume.trim().split('\n')[0].replace(/[^a-zA-Z\s.-]/g, '').trim() : '') ||
+          'Candidate';
+
+        setResumeText(effectiveResume);
+        setCandidateName(name);
+
+        const pack = await getApplicationPack({
+          candidate_name: name,
+          resume_text: effectiveResume,
+          job_title: job?.title || 'Software Engineer',
+          company: job?.company || 'Company',
+          job_description: job?.description || '',
+        });
+
+        if (active) {
+          setPackData(pack);
+        }
+      } catch (err) {
+        if (active) {
+          setError(err.response?.data?.detail || 'Failed to assemble application pack.');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadPack();
+
+    return () => {
+      active = false;
+    };
+  }, [job, application?.resume_id]);
+
+  const copyToClipboard = (text, key) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+    }
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const fallbackText = `${candidateName} | Software Engineer\n\nTECHNICAL SKILLS\nPython, FastAPI, React, Docker, PostgreSQL, Redis, TypeScript, AWS, Git\n\nEXPERIENCE\nSoftware Engineer\n- Engineered modular backend services with high test coverage and low latency.\n- Optimized data pipelines and deployed containerized services.`;
+      const textToExport = resumeText.trim() ? resumeText : fallbackText;
+
+      const fileBlob = await exportPdfDirect({
+        resume_text: textToExport,
+        candidate_name: candidateName,
+      });
+
+      const url = window.URL.createObjectURL(fileBlob);
+      const link = document.createElement('a');
+      const safeName = candidateName.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/^_+|_+$/g, '') || 'Candidate';
+      link.href = url;
+      link.download = `${safeName}_Harvard_ATS_Resume.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      setError('Could not download Harvard ATS PDF.');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
+  const handleDownloadCoverLetter = () => {
+    if (!packData?.cover_letter_text) return;
+    const blob = new Blob([packData.cover_letter_text], { type: 'text/plain;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const safeCompany = (job?.company || 'Company').replace(/[^a-zA-Z0-9_-]/g, '_');
+    link.download = `${safeCompany}_Tailored_Cover_Letter.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-900 text-lg">
+              📦
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-black text-slate-950">1-Click Complete Application Pack</h2>
+                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                  Ready to Submit
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium">
+                {job?.title || 'Role'} · {job?.company || 'Target Company'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="grid min-h-[40vh] place-items-center">
+            <div className="text-center">
+              <Loader2 className="mx-auto h-8 w-8 animate-spin text-slate-700" />
+              <p className="mt-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+                Generating truth-guarded cover letter, outreach &amp; screening answers...
+              </p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            {error}
+          </div>
+        ) : packData && (
+          <div className="mt-5 space-y-6">
+            {/* Quick Action Top Bar: 1-Click Harvard ATS PDF */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-slate-200 bg-[#f8fafc] p-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-slate-600" />
+                  Harvard ATS-Formatted Resume
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Single-column standard ATS template optimized for screening software.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleDownloadPdf}
+                disabled={downloadingPdf}
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition disabled:opacity-50 shrink-0"
+              >
+                {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                {downloadingPdf ? 'Generating PDF...' : 'Download Harvard ATS PDF'}
+              </button>
+            </div>
+
+            {/* Tailored Cover Letter */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-slate-600" />
+                    Truth-Guarded Tailored Cover Letter
+                  </h3>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    3-paragraph letter grounded exclusively in your verified technical skills.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(packData.cover_letter_text, 'cover_letter')}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                  >
+                    {copiedKey === 'cover_letter' ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5 text-slate-500" />}
+                    {copiedKey === 'cover_letter' ? 'Copied Letter' : 'Copy Letter'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadCoverLetter}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                  >
+                    <Download className="h-3.5 w-3.5 text-slate-500" />
+                    Download .txt
+                  </button>
+                </div>
+              </div>
+              <pre className="mt-4 whitespace-pre-wrap rounded-xl border border-slate-100 bg-[#f8fafc] p-4 font-sans text-xs leading-relaxed text-slate-800">
+                {packData.cover_letter_text}
+              </pre>
+            </div>
+
+            {/* LinkedIn Connection Note */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Send className="h-4 w-4 text-slate-600" />
+                    LinkedIn Recruiter Connection Note
+                  </h3>
+                  <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                    Strictly &lt; 300 chars
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-mono font-bold text-emerald-700">
+                    {packData.character_count || packData.outreach_note_300.length} / 300 chars
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(packData.outreach_note_300, 'linkedin')}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                  >
+                    {copiedKey === 'linkedin' ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5 text-slate-500" />}
+                    {copiedKey === 'linkedin' ? 'Copied Note' : 'Copy Note'}
+                  </button>
+                </div>
+              </div>
+              <p className="mt-4 rounded-xl border border-slate-100 bg-[#f8fafc] p-3.5 font-mono text-xs leading-relaxed text-slate-800">
+                {packData.outreach_note_300}
+              </p>
+            </div>
+
+            {/* Screening Answers Drawer */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setScreeningDrawerOpen(!screeningDrawerOpen)}
+                className="flex w-full items-center justify-between text-left"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900">
+                      High-Frequency ATS Screening Questions &amp; Answers
+                    </h3>
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                      {packData.screening_answers?.length || 0} Questions
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Grounded answers tailored to your tech stack for 1-click ATS application form pasting.
+                  </p>
+                </div>
+                {screeningDrawerOpen ? (
+                  <ChevronUp className="h-5 w-5 text-slate-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-slate-400" />
+                )}
+              </button>
+
+              {screeningDrawerOpen && (
+                <div className="mt-4 space-y-3 pt-3 border-t border-slate-100">
+                  {(packData.screening_answers || []).map((item, index) => (
+                    <div key={index} className="rounded-xl border border-slate-100 bg-[#f8fafc] p-3.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-xs font-bold text-slate-900">
+                          {item.question}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(item.answer, `screen-${index}`)}
+                          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition shrink-0"
+                        >
+                          {copiedKey === `screen-${index}` ? (
+                            <>
+                              <Check className="h-3 w-3 text-emerald-600" /> Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3 text-slate-500" /> Copy Answer
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-700 bg-white p-2.5 rounded-lg border border-slate-100">
+                        {item.answer}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

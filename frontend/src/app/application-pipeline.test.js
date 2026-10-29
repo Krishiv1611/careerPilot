@@ -52,3 +52,10 @@ test('generateClientOutreachNote stays strictly under 300 characters', () => {
   assert.ok(note.length <= 300, `Length was ${note.length}, expected <= 300`);
   assert.ok(note.includes('Alexander Montgomery-Smith'));
 });
+
+test('generateClientOutreachNote handles default parameters strictly within 300 characters', () => {
+  const note = generateClientOutreachNote({});
+  assert.ok(note.length <= 300);
+  assert.ok(note.length > 20);
+});
+

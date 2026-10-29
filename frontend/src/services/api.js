@@ -165,6 +165,11 @@ export const getRecruiterXRay = async ({ resume_text, job_description }) => {
     return response.data;
 };
 
+export const getApplicationPack = async (payload) => {
+    const response = await api.post('/resume-studio/application-pack', payload);
+    return response.data;
+};
+
 export const getGitHubStatus = async () => {
     const response = await api.get('/github/status');
     return response.data;

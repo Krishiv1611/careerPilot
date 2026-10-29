@@ -22,6 +22,7 @@ from models.user_model import User
 from services.ats_pdf_service import generate_ats_pdf
 from services.ats_scorer_service import calculate_ats_score
 from services.bullet_enhancer_service import enhance_bullet_star
+from services.cover_letter_service import generate_tailored_cover_letter
 from services.docx_resume_service import create_tailored_docx
 from services.recruiter_xray_service import analyze_recruiter_xray
 from services.resume_diff_service import apply_change_decisions, build_line_changes
@@ -50,6 +51,14 @@ class EnhanceBulletRequest(BaseModel):
 class ExportPdfDirectRequest(BaseModel):
     resume_text: str = ""
     candidate_name: str = "Candidate"
+
+
+class ApplicationPackRequest(BaseModel):
+    candidate_name: str = "Candidate"
+    resume_text: str = ""
+    job_title: str = "Software Engineer"
+    company: str = "Company"
+    job_description: str = ""
 
 
 class ResumeAnalysisRequest(BaseModel):
@@ -95,6 +104,17 @@ def export_pdf_direct(payload: ExportPdfDirectRequest):
         pdf_buffer,
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={safe_name}_ATS_Resume.pdf"},
+    )
+
+
+@router.post("/application-pack")
+def get_application_pack(payload: ApplicationPackRequest):
+    return generate_tailored_cover_letter(
+        candidate_name=payload.candidate_name,
+        resume_text=payload.resume_text,
+        job_title=payload.job_title,
+        company=payload.company,
+        job_description=payload.job_description,
     )
 
 

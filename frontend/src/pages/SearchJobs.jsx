@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+import { ApplicationPackModal } from './Applications';
 import api, {
   addCustomJob,
   analyzeJobMatch,
@@ -52,6 +53,7 @@ const SearchJobs = () => {
   const [updatingJobId, setUpdatingJobId] = useState(null);
   const [matchingJobId, setMatchingJobId] = useState(null);
   const [matchesByJob, setMatchesByJob] = useState({});
+  const [packTarget, setPackTarget] = useState(null);
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const [isSubmittingCustomJob, setIsSubmittingCustomJob] = useState(false);
   const [customJobForm, setCustomJobForm] = useState({
@@ -422,6 +424,7 @@ const SearchJobs = () => {
             onToggleSave={handleToggleSave}
             onDismissJob={handleDismissJob}
             onCheckMatch={checkMatch}
+            onOpenPack={(j) => setPackTarget(j)}
           />
         </div>
       )}
@@ -528,6 +531,12 @@ const SearchJobs = () => {
           </div>
         </div>
       )}
+      {packTarget && (
+        <ApplicationPackModal
+          job={packTarget}
+          onClose={() => setPackTarget(null)}
+        />
+      )}
     </div>
   );
 };
@@ -575,7 +584,7 @@ const JobListItem = ({ job, active, onSelect }) => (
 );
 
 
-const JobDetails = ({ job, match, saving, updatingState, matching, onSave, onToggleSave, onDismissJob, onCheckMatch }) => {
+const JobDetails = ({ job, match, saving, updatingState, matching, onSave, onToggleSave, onDismissJob, onCheckMatch, onOpenPack }) => {
   if (!job) return <div className="grid place-items-center p-10 text-sm text-slate-500">Choose a job to review it.</div>;
 
   const isSaved = job.user_state === 'saved';
@@ -600,6 +609,14 @@ const JobDetails = ({ job, match, saving, updatingState, matching, onSave, onTog
         </div>
 
         <div className="flex shrink-0 flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => onOpenPack(job)}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-900 bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 transition"
+            title="1-Click Complete Application Pack"
+          >
+            📦 Application Pack
+          </button>
           {job.id && (
             <button
               type="button"
