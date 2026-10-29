@@ -192,6 +192,13 @@ def _get_user_job(db, job_id, user_id):
 
 
 def _job_response(job, user_state):
+    from services.job_reality_service import audit_job_reality
+
+    health = audit_job_reality(
+        job.title or "",
+        job.description or "",
+        company=job.company or "",
+    )
     return {
         "id": job.id,
         "title": job.title,
@@ -208,4 +215,5 @@ def _job_response(job, user_state):
         "verification_status": job.verification_status,
         "fetched_at": job.fetched_at,
         "user_state": user_state,
+        "job_health": health,
     }

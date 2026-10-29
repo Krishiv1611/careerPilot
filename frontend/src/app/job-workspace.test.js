@@ -89,3 +89,26 @@ test('subsequent searches update search results without mutating saved jobs', ()
   assert.notDeepEqual(savedJobs, subsequentSearch);
 });
 
+
+test('adding a custom job with health audit prepends to saved jobs', () => {
+  const { applySavedJobState } = module;
+  const savedJobs = [{ id: 'existing', title: 'Dev', user_state: 'saved' }];
+  const customJob = {
+    id: 'custom_1',
+    title: 'Junior Software Engineer',
+    user_state: 'saved',
+    job_health: {
+      role_health_score: 85,
+      health_verdict: 'High Quality',
+      ghost_job_risk: 'Low',
+      red_flags: [],
+      green_flags: ['Focused modern tech stack'],
+    },
+  };
+  const result = applySavedJobState(savedJobs, customJob);
+  assert.equal(result.length, 2);
+  assert.equal(result[0].id, 'custom_1');
+  assert.equal(result[0].job_health.role_health_score, 85);
+  assert.equal(result[0].job_health.health_verdict, 'High Quality');
+});
+

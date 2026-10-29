@@ -41,6 +41,11 @@ export const saveJob = async (jobId) => {
     return response.data;
 };
 
+export const addCustomJob = async (jobPayload) => {
+    const response = await api.post('/jobs/custom', jobPayload);
+    return response.data;
+};
+
 export const dismissJob = async (jobId) => {
     const response = await api.post(`/jobs/${jobId}/dismiss`);
     return response.data;

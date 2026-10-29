@@ -1,8 +1,21 @@
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, Bookmark, BriefcaseBusiness, CheckCircle2, Loader2, MapPin, Plus, Search, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  Bookmark,
+  BriefcaseBusiness,
+  CheckCircle2,
+  Loader2,
+  MapPin,
+  Plus,
+  Search,
+  ShieldAlert,
+  X,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import api, {
+  addCustomJob,
   analyzeJobMatch,
   createApplication,
   discoverJobs,
@@ -39,6 +52,24 @@ const SearchJobs = () => {
   const [updatingJobId, setUpdatingJobId] = useState(null);
   const [matchingJobId, setMatchingJobId] = useState(null);
   const [matchesByJob, setMatchesByJob] = useState({});
+  const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
+  const [isSubmittingCustomJob, setIsSubmittingCustomJob] = useState(false);
+  const [customJobForm, setCustomJobForm] = useState({
+    title: '',
+    company: '',
+    location: 'Remote',
+    description: '',
+  });
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && isPasteModalOpen) {
+        setIsPasteModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPasteModalOpen]);
 
   useEffect(() => {
     let active = true;
@@ -98,6 +129,46 @@ const SearchJobs = () => {
       setMessage(error.response?.data?.detail || 'Job search failed. Please try again.');
     } finally {
       setSearching(false);
+    }
+  };
+
+  const handlePasteJobSubmit = async (event) => {
+    event.preventDefault();
+    const description = customJobForm.description.trim();
+    if (!description) return;
+
+    setIsSubmittingCustomJob(true);
+    setMessage('');
+    try {
+      const createdJob = await addCustomJob({
+        title: customJobForm.title.trim() || undefined,
+        company: customJobForm.company.trim() || undefined,
+        location: customJobForm.location.trim() || 'Remote',
+        description,
+      });
+
+      setSearchResults((prev) => [createdJob, ...prev]);
+      setSavedJobs((prev) => applySavedJobState(prev, createdJob));
+      setSelectedJob(createdJob);
+      setIsPasteModalOpen(false);
+      setCustomJobForm({
+        title: '',
+        company: '',
+        location: 'Remote',
+        description: '',
+      });
+
+      const score = createdJob.job_health?.role_health_score;
+      const verdict = createdJob.job_health?.health_verdict;
+      if (score !== undefined) {
+        setMessage(`Job "${createdJob.title}" analyzed! Role Health Score: ${score}/100 (${verdict || 'Audited'}).`);
+      } else {
+        setMessage(`Job "${createdJob.title}" added to your workspace.`);
+      }
+    } catch (error) {
+      setMessage(error.response?.data?.detail || error.message || 'Failed to analyze and save job.');
+    } finally {
+      setIsSubmittingCustomJob(false);
     }
   };
 
@@ -192,12 +263,22 @@ const SearchJobs = () => {
 
   return (
     <div className="space-y-7">
-      <header>
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#36454f]">Focused discovery</p>
-        <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-slate-950 sm:text-4xl">Find jobs worth applying to</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          Search SerpAPI and Tavily together. CareerPilot keeps actual job pages, removes senior roles and duplicate listings, and lets you save target jobs persistently across searches.
-        </p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#36454f]">Focused discovery</p>
+          <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-slate-950 sm:text-4xl">Find jobs worth applying to</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            Search SerpAPI and Tavily together. CareerPilot keeps actual job pages, removes senior roles and duplicate listings, and lets you save target jobs persistently across searches.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsPasteModalOpen(true)}
+          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#36454f] px-5 text-sm font-bold text-white shadow-xs hover:bg-[#202a30] transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Paste &amp; Analyze Any Job</span>
+        </button>
       </header>
 
       <form onSubmit={handleSearch} className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
@@ -344,6 +425,109 @@ const SearchJobs = () => {
           />
         </div>
       )}
+
+      {/* Universal Paste & Analyze Any Job Modal */}
+      {isPasteModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="paste-job-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsPasteModalOpen(false);
+          }}
+        >
+          <div className="relative w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl sm:p-7">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h2 id="paste-job-modal-title" className="text-lg font-black text-slate-950">
+                  Paste &amp; Analyze Any Job
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Paste any job description to run an instant 100-point ATS match &amp; Job Reality Red Flag Audit.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPasteModalOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                aria-label="Close dialog"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePasteJobSubmit} className="mt-5 space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-bold text-slate-700">Role Title</span>
+                  <input
+                    type="text"
+                    value={customJobForm.title}
+                    onChange={(e) => setCustomJobForm({ ...customJobForm, title: e.target.value })}
+                    placeholder="e.g. Junior Backend Engineer"
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#708090] focus:ring-2 focus:ring-[#d3d3d3]"
+                  />
+                </label>
+
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-bold text-slate-700">Company</span>
+                  <input
+                    type="text"
+                    value={customJobForm.company}
+                    onChange={(e) => setCustomJobForm({ ...customJobForm, company: e.target.value })}
+                    placeholder="e.g. Acme Health"
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#708090] focus:ring-2 focus:ring-[#d3d3d3]"
+                  />
+                </label>
+              </div>
+
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold text-slate-700">Location</span>
+                <input
+                  type="text"
+                  value={customJobForm.location}
+                  onChange={(e) => setCustomJobForm({ ...customJobForm, location: e.target.value })}
+                  placeholder="e.g. Remote or Bengaluru"
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#708090] focus:ring-2 focus:ring-[#d3d3d3]"
+                />
+              </label>
+
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold text-slate-700">
+                  Job Description <span className="text-rose-600">*</span>
+                </span>
+                <textarea
+                  rows={6}
+                  required
+                  value={customJobForm.description}
+                  onChange={(e) => setCustomJobForm({ ...customJobForm, description: e.target.value })}
+                  placeholder="Paste raw JD text, requirements, or responsibilities here..."
+                  className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-[#708090] focus:ring-2 focus:ring-[#d3d3d3]"
+                />
+              </label>
+
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsPasteModalOpen(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!customJobForm.description.trim() || isSubmittingCustomJob}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#36454f] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#202a30] disabled:cursor-not-allowed disabled:bg-slate-300 transition-colors"
+                >
+                  {isSubmittingCustomJob ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  {isSubmittingCustomJob ? 'Auditing role...' : 'Analyze & Save Job'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -366,6 +550,20 @@ const JobListItem = ({ job, active, onSelect }) => (
         )}
         {job.verification_status === 'verified' && (
           <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-label="Verified job page" />
+        )}
+        {job.job_health?.role_health_score !== undefined && (
+          <span
+            className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+              job.job_health.health_verdict === 'High Quality'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : job.job_health.health_verdict === 'Proceed with Caution'
+                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                : 'bg-rose-50 text-rose-700 border-rose-200'
+            }`}
+            title={`Role Health: ${job.job_health.role_health_score}/100 (${job.job_health.health_verdict})`}
+          >
+            {job.job_health.role_health_score} pts
+          </span>
         )}
       </div>
     </div>
@@ -458,6 +656,8 @@ const JobDetails = ({ job, match, saving, updatingState, matching, onSave, onTog
         <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5"><BriefcaseBusiness className="h-3.5 w-3.5" /> {job.employment_type || 'Type not specified'}</span>
       </div>
 
+      {job.job_health && <RoleHealthCard health={job.job_health} />}
+
       <div className="mt-8 border-t border-slate-200 pt-7">
         <h3 className="text-sm font-bold text-slate-950">Job description</h3>
         <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-600">{job.description || 'The provider did not return a full description. Review the original listing before applying.'}</p>
@@ -471,6 +671,114 @@ const JobDetails = ({ job, match, saving, updatingState, matching, onSave, onTog
         {match && <MatchSummary match={match} jobId={job.id} />}
       </div>
     </article>
+  );
+};
+
+
+const RoleHealthCard = ({ health }) => {
+  if (!health) return null;
+
+  const verdictStyles = {
+    'High Quality': 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    'Proceed with Caution': 'bg-amber-50 text-amber-800 border-amber-200',
+    'High-Risk Post': 'bg-rose-50 text-rose-800 border-rose-200',
+  };
+
+  const ghostRiskStyles = {
+    Low: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+    Moderate: 'text-amber-700 bg-amber-50 border-amber-200',
+    High: 'text-rose-700 bg-rose-50 border-rose-200',
+  };
+
+  const badgeClass = verdictStyles[health.health_verdict] || 'bg-slate-100 text-slate-700 border-slate-200';
+  const ghostClass = ghostRiskStyles[health.ghost_job_risk] || 'text-slate-700 bg-slate-50 border-slate-200';
+
+  return (
+    <section className="mt-7 rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
+      <div className="flex flex-col gap-3 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5 text-[#36454f]" />
+            <h3 className="text-sm font-bold text-slate-950">Role Health &amp; Red Flag Auditor</h3>
+          </div>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Automated reality check on tech stack requirements, burnout flags, and ghost job patterns.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <div className="flex items-baseline justify-end gap-1">
+              <span className="text-2xl font-black text-slate-950">{health.role_health_score}</span>
+              <span className="text-xs font-semibold text-slate-500">/100</span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Health Score</span>
+          </div>
+
+          <span className={`rounded-full border px-3 py-1 text-xs font-bold ${badgeClass}`}>
+            {health.health_verdict}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-600">
+        <div className="flex items-center gap-1.5">
+          <span className="text-slate-500">Ghost Job Risk:</span>
+          <span className={`rounded-md border px-2 py-0.5 text-xs font-bold ${ghostClass}`}>
+            {health.ghost_job_risk} Risk
+          </span>
+        </div>
+
+        {health.detected_tech_count !== undefined && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500">Detected Tech Tools:</span>
+            <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-bold text-slate-700">
+              {health.detected_tech_count} tools
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-3.5">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-rose-900">
+            <AlertTriangle className="h-4 w-4 text-rose-600" />
+            <span>Flagged Cautions ({health.red_flags?.length || 0})</span>
+          </div>
+          {health.red_flags && health.red_flags.length > 0 ? (
+            <ul className="mt-2 space-y-1.5 text-xs text-rose-950">
+              {health.red_flags.map((flag, idx) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
+                  <span>{flag}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-xs italic text-rose-700">No red flags or burnout phrases detected.</p>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3.5">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <span>Healthy Signals ({health.green_flags?.length || 0})</span>
+          </div>
+          {health.green_flags && health.green_flags.length > 0 ? (
+            <ul className="mt-2 space-y-1.5 text-xs text-emerald-950">
+              {health.green_flags.map((flag, idx) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                  <span>{flag}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-xs italic text-emerald-700">Standard benefits and role scoping.</p>
+          )}
+        </div>
+      </div>
+    </section>
   );
 };
 

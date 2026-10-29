@@ -41,6 +41,7 @@ class JobResponseModel(BaseModel):
     verification_status: str = "stored"
     fetched_at: datetime | None = None
     user_state: str | None = None
+    job_health: dict[str, Any] | None = None
 
 
 class ApplicationCreateModel(BaseModel):
