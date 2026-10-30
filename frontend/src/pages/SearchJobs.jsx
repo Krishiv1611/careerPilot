@@ -1,15 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   AlertTriangle,
   ArrowUpRight,
   Bookmark,
   BriefcaseBusiness,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Flame,
+  Gauge,
   Loader2,
   MapPin,
   Plus,
   Search,
   ShieldAlert,
+  ShieldCheck,
+  Sparkles,
   X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -26,7 +33,10 @@ import api, {
   saveJob,
 } from '../services/api';
 import { applyJobState, applySavedJobState, filterJobsByHealth } from '../app/job-workspace';
+import { StudioButton, StudioCard, StudioMotionDrawer } from '../components/studio/StudioPrimitives';
+import { cn } from '../lib/utils';
 
+const MotionDiv = motion.div;
 
 const getSavedJobs = async () => {
   const response = await api.get('/jobs/saved');
@@ -38,14 +48,733 @@ const unsaveJob = async (jobId) => {
   return response.data;
 };
 
+export const RoleHealthScoreBadge = ({ score = 100, verdict = '', size = 'sm', pulse = true }) => {
+  const shouldReduceMotion = useReducedMotion();
+  const isHealthy = score >= 70;
+  const isModerate = score >= 50 && score < 70;
+
+  const style = isHealthy
+    ? {
+        badge: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.3)]',
+        dot: 'bg-emerald-400',
+        ping: 'bg-emerald-400',
+      }
+    : isModerate
+    ? {
+        badge: 'bg-amber-500/10 text-amber-300 border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.3)]',
+        dot: 'bg-amber-400',
+        ping: 'bg-amber-400',
+      }
+    : {
+        badge: 'bg-rose-500/10 text-rose-300 border-rose-500/40 shadow-[0_0_12px_rgba(244,63,94,0.3)]',
+        dot: 'bg-rose-400',
+        ping: 'bg-rose-400',
+      };
+
+  const sizeClass =
+    size === 'xs'
+      ? 'text-[10px] px-2 py-0.5'
+      : size === 'lg'
+      ? 'text-sm px-3.5 py-1'
+      : 'text-xs px-2.5 py-0.5';
+
+  return (
+    <motion.span
+      initial={shouldReduceMotion ? undefined : { scale: 0.95, opacity: 0 }}
+      animate={shouldReduceMotion ? undefined : { scale: 1, opacity: 1 }}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border font-bold select-none',
+        style.badge,
+        sizeClass
+      )}
+      title={`Role Health: ${score}/100 ${verdict ? `(${verdict})` : ''}`}
+    >
+      <span className="relative flex h-1.5 w-1.5 flex-shrink-0">
+        {pulse && !shouldReduceMotion && (
+          <span
+            className={cn(
+              'absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping',
+              style.ping
+            )}
+          />
+        )}
+        <span className={cn('relative inline-flex rounded-full h-1.5 w-1.5', style.dot)} />
+      </span>
+      <span>{score} pts</span>
+      {verdict && <span className="opacity-75 font-medium">· {verdict}</span>}
+    </motion.span>
+  );
+};
+
+const CircularHealthGauge = ({ score = 85 }) => {
+  const shouldReduceMotion = useReducedMotion();
+  const radius = 38;
+  const circumference = 2 * Math.PI * radius;
+  const clampedScore = Math.max(0, Math.min(100, score));
+  const strokeDashoffset = circumference - (clampedScore / 100) * circumference;
+
+  const isHealthy = score >= 70;
+  const isModerate = score >= 50 && score < 70;
+
+  const color = isHealthy
+    ? 'text-emerald-400 stroke-emerald-400'
+    : isModerate
+    ? 'text-amber-400 stroke-amber-400'
+    : 'text-rose-400 stroke-rose-400';
+
+  const glow = isHealthy
+    ? 'drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]'
+    : isModerate
+    ? 'drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]'
+    : 'drop-shadow-[0_0_10px_rgba(244,63,94,0.5)]';
+
+  return (
+    <div className="relative flex items-center justify-center shrink-0">
+      <svg className="h-28 w-28 -rotate-90 transform" viewBox="0 0 96 96">
+        <circle
+          cx="48"
+          cy="48"
+          r={radius}
+          className="stroke-[#1F2937]"
+          strokeWidth="7"
+          fill="none"
+        />
+        <motion.circle
+          cx="48"
+          cy="48"
+          r={radius}
+          className={cn('fill-none stroke-current', color, glow)}
+          strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset }}
+          transition={
+            shouldReduceMotion
+              ? { duration: 0 }
+              : { duration: 0.9, ease: 'easeOut' }
+          }
+        />
+      </svg>
+      <div className="absolute flex flex-col items-center justify-center text-center">
+        <span className={cn('text-2xl font-black tracking-tight', color)}>{score}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">/ 100</span>
+      </div>
+    </div>
+  );
+};
+
+const RoleHealthCard = ({ health }) => {
+  if (!health) return null;
+
+  const score = health.role_health_score ?? 100;
+  const isHealthy = score >= 70;
+  const isModerate = score >= 50 && score < 70;
+
+  const ghostRisk = health.ghost_job_risk || 'Low';
+  const isGhostHigh = ghostRisk === 'High';
+  const isGhostMod = ghostRisk === 'Moderate';
+
+  const redFlags = health.red_flags || [];
+  const greenFlags = health.green_flags || [];
+
+  const techCount = health.detected_tech_count ?? 0;
+  const isTechOverload = techCount >= 10 || redFlags.some((f) => /overload|sprawl/i.test(f));
+  const burnoutPatterns = /burnout|crunch|weekend|hats|rockstar|ninja|wizard|guru|24\/7|urgent/i;
+  const burnoutFlags = redFlags.filter((f) => burnoutPatterns.test(f));
+  const boundaryCautions = redFlags.filter((f) => !burnoutPatterns.test(f));
+
+  return (
+    <section className="mt-6 rounded-2xl border border-[#283548] bg-[#171F2C] p-5 sm:p-6 shadow-xl">
+      <div className="flex flex-col gap-4 border-b border-[#283548] pb-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5 text-cyan-400" />
+            <h3 className="text-base font-bold text-slate-100">Role Health &amp; Red Flag Auditor</h3>
+          </div>
+          <p className="mt-1 text-xs text-slate-400">
+            Automated reality check on tech stack requirements, burnout flags, and ghost job patterns.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <RoleHealthScoreBadge score={score} verdict={health.health_verdict} size="lg" />
+        </div>
+      </div>
+
+      <div className="mt-5 grid items-center gap-5 sm:grid-cols-[auto_1fr] rounded-xl border border-[#1F2937] bg-[#0F141C] p-4 sm:p-5">
+        <CircularHealthGauge score={score} />
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+            <span>Role Reality Health Meter</span>
+            <span
+              className={
+                isHealthy ? 'text-emerald-400' : isModerate ? 'text-amber-400' : 'text-rose-400'
+              }
+            >
+              {score} / 100 ({score >= 70 ? 'Healthy Role' : score >= 50 ? 'Caution Advised' : 'High Risk Role'})
+            </span>
+          </div>
+
+          <div className="h-3 w-full overflow-hidden rounded-full bg-[#1F2937]">
+            <motion.div
+              className={cn(
+                'h-full rounded-full transition-all',
+                isHealthy
+                  ? 'bg-gradient-to-r from-emerald-500 to-cyan-400 shadow-[0_0_12px_rgba(16,185,129,0.5)]'
+                  : isModerate
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_12px_rgba(245,158,11,0.5)]'
+                  : 'bg-gradient-to-r from-rose-600 to-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]'
+              )}
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.max(5, Math.min(100, score))}%` }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+            />
+          </div>
+
+          <div className="flex justify-between text-[10px] font-medium text-slate-400">
+            <span>0 (High Risk)</span>
+            <span className="text-amber-400">50 (Caution)</span>
+            <span className="font-bold text-emerald-400">70+ (Healthy Threshold)</span>
+            <span>100</span>
+          </div>
+        </div>
+      </div>
+
+      {isGhostHigh && (
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-rose-200 shadow-[0_0_20px_rgba(244,63,94,0.15)]">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
+          <div className="text-xs">
+            <p className="font-bold text-rose-300">High Ghost Job Risk Detected</p>
+            <p className="mt-1 text-rose-200/90 leading-relaxed">
+              This posting appears to be from a confidential staffing agency, a placeholder repost, or has a truncated description (&lt;35 words). Confirm the posting on the company direct portal before investing significant effort.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {isGhostMod && (
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200 shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+          <div className="text-xs">
+            <p className="font-bold text-amber-300">Moderate Ghost Job / Speculative Pipeline Risk</p>
+            <p className="mt-1 text-amber-200/90 leading-relaxed">
+              Signals suggest this might be speculative talent pipeline harvesting rather than an active immediate headcount seat.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 rounded-xl border border-[#1F2937] bg-[#0F141C] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-xs">
+            <span className="font-bold text-slate-200">Junior Tech Stack Overload Gauge: </span>
+            <span className="font-semibold text-slate-400">
+              {techCount} technologies detected
+            </span>
+          </div>
+          <span
+            className={cn(
+              'rounded-full border px-2.5 py-0.5 text-xs font-bold',
+              isTechOverload
+                ? 'border-rose-500/40 bg-rose-500/15 text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.25)]'
+                : techCount >= 2 && techCount <= 6
+                ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                : 'border-slate-700 bg-slate-800 text-slate-300'
+            )}
+          >
+            {isTechOverload
+              ? '⚠ Overload Alert'
+              : techCount >= 2 && techCount <= 6
+              ? '✓ Realistic Early-Career Scope'
+              : 'Standard Scope'}
+          </span>
+        </div>
+        <p className="mt-1.5 text-xs text-slate-400">
+          {isTechOverload
+            ? 'Early-career roles requiring 10+ disparate tools frequently conceal unrealistic expectations or multiple roles merged into one.'
+            : techCount >= 2 && techCount <= 6
+            ? 'Focused requirements (2-6 tools) provide healthy onboarding and focused depth for entry-level talent.'
+            : 'Review technology list to ensure alignment with your current stack and growth roadmap.'}
+        </p>
+      </div>
+
+      {burnoutFlags.length > 0 && (
+        <div className="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 shadow-[0_0_15px_rgba(244,63,94,0.15)]">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-rose-300">
+            <Flame className="h-4 w-4 text-rose-400" />
+            <span>Burnout Phrasing &amp; Culture Warnings ({burnoutFlags.length})</span>
+          </div>
+          <ul className="mt-2.5 space-y-1.5 text-xs text-rose-200">
+            {burnoutFlags.map((flag, idx) => (
+              <li key={idx} className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400" />
+                <span>{flag}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-4">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-rose-300">
+            <AlertTriangle className="h-4 w-4 text-rose-400" />
+            <span>Role Boundaries &amp; Cautions ({boundaryCautions.length})</span>
+          </div>
+          {boundaryCautions.length > 0 ? (
+            <ul className="mt-2.5 space-y-1.5 text-xs text-rose-200/90">
+              {boundaryCautions.map((flag, idx) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400" />
+                  <span>{flag}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2.5 text-xs italic text-rose-400/80">
+              No disguised roles or boundary ambiguities detected.
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-300">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <span>Workplace Culture Green Flags ({greenFlags.length})</span>
+          </div>
+          {greenFlags.length > 0 ? (
+            <ul className="mt-2.5 space-y-1.5 text-xs text-emerald-200/90">
+              {greenFlags.map((flag, idx) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+                  <span>{flag}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2.5 text-xs italic text-emerald-400/80">
+              Standard benefits and role scoping.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const MatchSummary = ({ match, jobId }) => (
+  <div className="mt-4 border-t border-[#283548] pt-4 text-slate-200">
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <p className="text-2xl font-black text-cyan-400">{Math.round(match.coverage_percent)}%</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+          Detected requirement coverage
+        </p>
+      </div>
+      <span
+        className={cn(
+          'rounded-full px-2.5 py-1 text-xs font-bold',
+          match.eligibility_status === 'eligible'
+            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+            : match.eligibility_status === 'not_eligible'
+            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+            : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+        )}
+      >
+        {match.eligibility_status.replace('_', ' ')}
+      </span>
+    </div>
+    <ul className="mt-3 space-y-1 text-xs leading-5 text-slate-300">
+      {match.eligibility_reasons.map((reason) => (
+        <li key={reason} className="flex items-start gap-2">
+          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400" />
+          <span>{reason}</span>
+        </li>
+      ))}
+    </ul>
+    <div className="mt-3 flex flex-wrap gap-2">
+      {match.matched_skills.map((skill) => (
+        <span
+          key={skill}
+          className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 text-[11px] font-bold text-emerald-300"
+        >
+          Evidence: {skill}
+        </span>
+      ))}
+      {match.missing_skills.map((skill) => (
+        <span
+          key={skill}
+          className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 text-[11px] font-bold text-amber-300"
+        >
+          Gap: {skill}
+        </span>
+      ))}
+    </div>
+    <Link
+      to={`/profile/tailor?job=${jobId}`}
+      className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-md shadow-emerald-500/20 hover:brightness-105 transition"
+    >
+      <Sparkles className="h-3.5 w-3.5" />
+      <span>Tailor resume for this job</span>
+    </Link>
+  </div>
+);
+
+const EmptySearchState = () => (
+  <div className="rounded-2xl border border-dashed border-[#283548] bg-[#0F141C] px-6 py-16 text-center text-slate-100">
+    <BriefcaseBusiness className="mx-auto h-10 w-10 text-cyan-400/60" />
+    <h2 className="mt-4 text-lg font-bold text-slate-100">Search for your first role</h2>
+    <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">
+      Try a clear role such as &quot;Python backend developer&quot;, choose India or a city, and select full-time or internship.
+    </p>
+  </div>
+);
+
+const EmptySavedState = ({ onBrowse }) => (
+  <div className="rounded-2xl border border-dashed border-[#283548] bg-[#0F141C] px-6 py-16 text-center text-slate-100">
+    <Bookmark className="mx-auto h-10 w-10 text-cyan-400/60" />
+    <h2 className="mt-4 text-lg font-bold text-slate-100">No saved jobs yet</h2>
+    <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">
+      When searching for jobs in the Live Search Results tab, click &quot;Save job&quot; on any role to keep it permanently saved in this tab across searches.
+    </p>
+    <button
+      type="button"
+      onClick={onBrowse}
+      className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#171F2C] border border-[#283548] px-4 py-2.5 text-sm font-bold text-slate-200 hover:border-cyan-500/50 hover:text-white transition-colors cursor-pointer"
+    >
+      <Search className="h-4 w-4 text-cyan-400" /> Browse Live Search Results
+    </button>
+  </div>
+);
+
+const JobCard = ({ job, active, onSelect, onToggleSave, onOpenPack, updatingState }) => {
+  const shouldReduceMotion = useReducedMotion();
+  const score = job.job_health?.role_health_score ?? 100;
+  const isSaved = job.user_state === 'saved';
+
+  const ghostRisk = job.job_health?.ghost_job_risk || 'Low';
+  const isGhostHigh = ghostRisk === 'High';
+  const isGhostMod = ghostRisk === 'Moderate';
+
+  const redFlags = job.job_health?.red_flags || [];
+  const techCount = job.job_health?.detected_tech_count ?? 0;
+  const isTechOverload = techCount >= 10 || redFlags.some((f) => /overload|sprawl/i.test(f));
+  const burnoutPatterns = /burnout|crunch|weekend|hats|rockstar|ninja|wizard|guru|24\/7|urgent/i;
+  const burnoutFlags = redFlags.filter((f) => burnoutPatterns.test(f));
+
+  return (
+    <StudioCard
+      interactive
+      hoverLift={!shouldReduceMotion}
+      onClick={onSelect}
+      className={cn(
+        'p-5 transition-all duration-200',
+        active
+          ? 'border-cyan-500/60 bg-[#171F2C] shadow-[0_0_20px_-3px_rgba(6,182,212,0.25)]'
+          : 'bg-[#0F141C] border border-[#1F2937] hover:border-cyan-500/40'
+      )}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <RoleHealthScoreBadge score={score} verdict={job.job_health?.health_verdict} size="xs" />
+            {isSaved && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
+                <Bookmark className="h-3 w-3 fill-cyan-400 text-cyan-400" /> Saved
+              </span>
+            )}
+            {job.verification_status === 'verified' && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                <CheckCircle2 className="h-3 w-3 text-emerald-400" /> Live Listing
+              </span>
+            )}
+          </div>
+
+          <h3 className="mt-2.5 text-base font-bold text-slate-100 truncate">{job.title}</h3>
+          <p className="mt-0.5 text-sm font-medium text-slate-400">{job.company}</p>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => onToggleSave(job)}
+            disabled={updatingState}
+            className={cn(
+              'rounded-xl p-2 transition-colors cursor-pointer border',
+              isSaved
+                ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/25'
+                : 'border-[#1F2937] bg-[#171F2C] text-slate-400 hover:text-slate-200 hover:border-slate-600'
+            )}
+            title={isSaved ? 'Unsave job' : 'Save job'}
+            aria-label={isSaved ? 'Unsave job' : 'Save job'}
+          >
+            <Bookmark className={cn('h-4 w-4', isSaved && 'fill-cyan-400 text-cyan-400')} />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+        {isGhostHigh && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-[10px] font-bold text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.25)]">
+            <AlertTriangle className="h-3 w-3 text-rose-400" /> Ghost Risk: High
+          </span>
+        )}
+        {isGhostMod && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
+            <AlertTriangle className="h-3 w-3 text-amber-400" /> Ghost Risk: Moderate
+          </span>
+        )}
+        {isTechOverload && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-[10px] font-bold text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.25)]">
+            <AlertTriangle className="h-3 w-3 text-rose-400" /> Tech Overload ({techCount})
+          </span>
+        )}
+        {burnoutFlags.length > 0 && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-[10px] font-bold text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.25)]">
+            <Flame className="h-3 w-3 text-rose-400" /> Burnout ({burnoutFlags.length})
+          </span>
+        )}
+      </div>
+
+      <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-400 border-t border-[#1F2937]/70 pt-3">
+        <span className="flex items-center gap-1">
+          <MapPin className="h-3.5 w-3.5 text-slate-500" />
+          {job.location || 'Location not specified'}
+        </span>
+        {job.employment_type && (
+          <span className="flex items-center gap-1">
+            <BriefcaseBusiness className="h-3.5 w-3.5 text-slate-500" />
+            {job.employment_type}
+          </span>
+        )}
+      </div>
+
+      <div
+        className="mt-4 flex items-center justify-between gap-2 pt-1"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onSelect}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-[#171F2C] border border-[#283548] px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:border-cyan-500/50 hover:bg-[#1F2937] transition-colors cursor-pointer"
+        >
+          <Gauge className="h-3.5 w-3.5 text-cyan-400" />
+          <span>Inspect Reality</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onOpenPack(job)}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/[0.08] hover:border-slate-500 transition-colors cursor-pointer"
+          title="1-Click Complete Application Pack"
+        >
+          <span>📦 Pack</span>
+        </button>
+      </div>
+    </StudioCard>
+  );
+};
+
+const JobInspectorContent = ({
+  job,
+  match,
+  saving,
+  updatingState,
+  matching,
+  onSave,
+  onToggleSave,
+  onDismissJob,
+  onCheckMatch,
+  onOpenPack,
+  onClose,
+  onPrev,
+  onNext,
+  hasPrev,
+  hasNext,
+}) => {
+  if (!job) return null;
+
+  const isSaved = job.user_state === 'saved';
+
+  return (
+    <article className="space-y-6 text-slate-100">
+      <div className="flex items-center justify-between border-b border-[#1F2937] pb-4">
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <button
+            type="button"
+            onClick={onPrev}
+            disabled={!hasPrev}
+            className="inline-flex items-center gap-1 rounded-lg border border-[#283548] bg-[#171F2C] px-2.5 py-1 text-slate-300 hover:border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" /> Prev
+          </button>
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={!hasNext}
+            className="inline-flex items-center gap-1 rounded-lg border border-[#283548] bg-[#171F2C] px-2.5 py-1 text-slate-300 hover:border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          >
+            Next <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-xl border border-[#283548] bg-[#171F2C] p-2 text-slate-400 hover:text-slate-100 hover:border-slate-600 transition-colors cursor-pointer"
+          aria-label="Close inspector drawer"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="flex flex-col justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <RoleHealthScoreBadge
+              score={job.job_health?.role_health_score ?? 100}
+              verdict={job.job_health?.health_verdict}
+              size="sm"
+            />
+            {job.verification_status === 'verified' && (
+              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
+                Live Listing Active
+              </span>
+            )}
+            {isSaved && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 px-2.5 py-0.5 text-xs font-bold text-cyan-300">
+                <Bookmark className="h-3 w-3 fill-cyan-400 text-cyan-400" /> Saved for Later
+              </span>
+            )}
+            {job.source && <span className="text-xs text-slate-400">via {job.source}</span>}
+          </div>
+
+          <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-100">{job.title}</h2>
+          <p className="mt-1 text-base font-semibold text-slate-300">{job.company}</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <StudioButton
+            variant="primary"
+            size="sm"
+            onClick={() => onOpenPack(job)}
+            title="1-Click Complete Application Pack (ATS Resume, Cover Letter, Multi-Channel Outreach Toolkit)"
+            aria-label="Open 1-Click Complete Application Pack"
+          >
+            📦 Application Pack
+          </StudioButton>
+
+          {job.id && (
+            <button
+              type="button"
+              onClick={() => onToggleSave(job)}
+              disabled={updatingState}
+              className={cn(
+                'inline-flex items-center justify-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer',
+                isSaved
+                  ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25'
+                  : 'border-[#283548] bg-[#171F2C] text-slate-300 hover:border-slate-600'
+              )}
+              aria-label={isSaved ? 'Unsave job' : 'Save job'}
+            >
+              <Bookmark className={cn('h-3.5 w-3.5', isSaved && 'fill-cyan-400 text-cyan-400')} />
+              <span>{isSaved ? 'Saved' : 'Save job'}</span>
+            </button>
+          )}
+
+          {job.id && (
+            <button
+              type="button"
+              onClick={() => onDismissJob(job)}
+              disabled={updatingState}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#283548] bg-[#171F2C] px-3.5 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200 hover:border-slate-600 transition-colors cursor-pointer"
+              aria-label="Dismiss job"
+            >
+              <X className="h-3.5 w-3.5" />
+              <span>Dismiss</span>
+            </button>
+          )}
+
+          {job.id && (
+            <button
+              type="button"
+              onClick={() => onSave(job)}
+              disabled={saving}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-3.5 py-2 text-xs font-bold text-slate-950 shadow-md shadow-emerald-500/20 hover:brightness-105 disabled:opacity-50 cursor-pointer"
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              <span>{saving ? 'Saving…' : 'Save to applications'}</span>
+            </button>
+          )}
+
+          {job.url && (
+            <a
+              href={job.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#283548] bg-[#171F2C] px-3.5 py-2 text-xs font-semibold text-slate-200 hover:border-cyan-500/50 hover:text-white transition-colors"
+            >
+              <span>View listing</span>
+              <ArrowUpRight className="h-3.5 w-3.5 text-cyan-400" />
+            </a>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-xs font-semibold text-slate-300">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#283548] bg-[#171F2C] px-3 py-1.5">
+          <MapPin className="h-3.5 w-3.5 text-cyan-400" /> {job.location || 'Not specified'}
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#283548] bg-[#171F2C] px-3 py-1.5">
+          <BriefcaseBusiness className="h-3.5 w-3.5 text-emerald-400" /> {job.employment_type || 'Type not specified'}
+        </span>
+      </div>
+
+      {job.job_health && <RoleHealthCard health={job.job_health} />}
+
+      <div className="rounded-2xl border border-[#283548] bg-[#171F2C] p-5 shadow-xl">
+        <h3 className="text-sm font-bold text-slate-100">Job description</h3>
+        <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-300">
+          {job.description ||
+            'The provider did not return a full description. Review the original listing before applying.'}
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-[#283548] bg-[#171F2C] p-5 shadow-xl">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-slate-100">Explainable resume match</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Uses your latest resume and shows the evidence behind the result.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onCheckMatch(job)}
+            disabled={!job.id || matching}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-3.5 py-2 text-xs font-bold text-slate-950 shadow-md shadow-emerald-500/20 hover:brightness-105 disabled:opacity-50 cursor-pointer"
+          >
+            {matching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            <span>{matching ? 'Checking…' : 'Check my match'}</span>
+          </button>
+        </div>
+        {match && <MatchSummary match={match} jobId={job.id} />}
+      </div>
+    </article>
+  );
+};
 
 const SearchJobs = () => {
+  const shouldReduceMotion = useReducedMotion();
   const [form, setForm] = useState({ query: '', location: 'India', employment_type: 'full-time' });
   const [searchResults, setSearchResults] = useState([]);
   const [savedJobs, setSavedJobs] = useState([]);
   const [activeTab, setActiveTab] = useState('search'); // 'search' | 'saved'
   const [healthFilter, setHealthFilter] = useState('all'); // 'all' | 'healthy' | 'caution'
   const [selectedJob, setSelectedJob] = useState(null);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [message, setMessage] = useState('');
@@ -155,6 +884,7 @@ const SearchJobs = () => {
       setSavedJobs((prev) => applySavedJobState(prev, createdJob));
       setHealthFilter('all');
       setSelectedJob(createdJob);
+      setIsInspectorOpen(true);
       setIsPasteModalOpen(false);
       setCustomJobForm({
         title: '',
@@ -283,742 +1013,450 @@ const SearchJobs = () => {
   const cautionCount = filterJobsByHealth(baseJobs, 'caution').length;
   const displayedJobs = filterJobsByHealth(baseJobs, healthFilter);
 
+  const selectedIndex = displayedJobs.findIndex(
+    (j) => (j.id || j.url) === (selectedJob?.id || selectedJob?.url)
+  );
+  const hasPrev = selectedIndex > 0;
+  const hasNext = selectedIndex >= 0 && selectedIndex < displayedJobs.length - 1;
+
+  const handleSelectJob = (job) => {
+    setSelectedJob(job);
+    setIsInspectorOpen(true);
+  };
+
+  const handlePrev = () => {
+    if (hasPrev) setSelectedJob(displayedJobs[selectedIndex - 1]);
+  };
+
+  const handleNext = () => {
+    if (hasNext) setSelectedJob(displayedJobs[selectedIndex + 1]);
+  };
+
+  const healthFilterOptions = useMemo(
+    () => [
+      { id: 'all', label: 'All', count: allCount },
+      { id: 'healthy', label: 'Healthy Roles ≥ 70', count: healthyCount, icon: ShieldCheck },
+      { id: 'caution', label: 'Cautions Only', count: cautionCount, icon: AlertTriangle },
+    ],
+    [allCount, healthyCount, cautionCount]
+  );
+
   return (
-    <div className="space-y-7">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-8 text-slate-100">
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#36454f]">Focused discovery</p>
-          <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-slate-950 sm:text-4xl">Find jobs worth applying to</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            Search SerpAPI and Tavily together. CareerPilot keeps actual job pages, removes senior roles and duplicate listings, and lets you save target jobs persistently across searches.
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-[11px] font-bold text-cyan-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping" />
+              Hero Suite 03 · Reality Auditor
+            </span>
+          </div>
+          <h1 className="mt-2.5 text-3xl font-black tracking-tight text-slate-100 sm:text-4xl">
+            Find jobs worth applying to
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">
+            Dual SerpAPI &amp; Tavily discovery with real-time tech stack audits, ghost-job risk detection, and burnout warning radar before you apply.
           </p>
         </div>
-        <button
-          type="button"
+
+        <StudioButton
+          variant="primary"
+          size="md"
+          icon={Plus}
           onClick={() => setIsPasteModalOpen(true)}
-          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#36454f] px-5 text-sm font-bold text-white shadow-xs hover:bg-[#202a30] transition-colors"
+          className="shrink-0"
         >
-          <Plus className="h-4 w-4" />
-          <span>Paste &amp; Analyze Any Job</span>
-        </button>
+          Paste &amp; Analyze Any Job
+        </StudioButton>
       </header>
 
-      <form onSubmit={handleSearch} className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-        <div className="grid gap-3 lg:grid-cols-[1.5fr_0.8fr_0.65fr_auto]">
+      {/* Dark Studio Search Bar with luminescent query focus */}
+      <form
+        onSubmit={handleSearch}
+        className="rounded-2xl border border-[#1F2937] bg-[#0F141C] p-4 sm:p-5 shadow-2xl"
+      >
+        <div className="grid gap-3.5 lg:grid-cols-[1.5fr_0.8fr_0.65fr_auto]">
           <label className="space-y-1.5">
-            <span className="text-xs font-bold text-slate-600">Role or skills</span>
+            <span className="text-xs font-bold text-slate-300">Role or skills</span>
             <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
               <input
                 name="query"
                 value={form.query}
                 onChange={updateForm}
                 placeholder="Python backend developer"
-                className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-[#708090] focus:ring-2 focus:ring-[#d3d3d3]"
+                className="h-11 w-full rounded-xl border border-[#283548] bg-[#171F2C] pl-10 pr-3.5 text-sm text-slate-100 placeholder:text-slate-500 outline-none transition-all duration-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:shadow-[0_0_15px_rgba(6,182,212,0.25)]"
               />
             </div>
           </label>
 
           <label className="space-y-1.5">
-            <span className="text-xs font-bold text-slate-600">Location</span>
-            <input
-              name="location"
-              value={form.location}
-              onChange={updateForm}
-              placeholder="Bengaluru or India"
-              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#708090] focus:ring-2 focus:ring-[#d3d3d3]"
-            />
+            <span className="text-xs font-bold text-slate-300">Location</span>
+            <div className="relative">
+              <MapPin className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+              <input
+                name="location"
+                value={form.location}
+                onChange={updateForm}
+                placeholder="Bengaluru or India"
+                className="h-11 w-full rounded-xl border border-[#283548] bg-[#171F2C] pl-10 pr-3.5 text-sm text-slate-100 placeholder:text-slate-500 outline-none transition-all duration-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:shadow-[0_0_15px_rgba(6,182,212,0.25)]"
+              />
+            </div>
           </label>
 
           <label className="space-y-1.5">
-            <span className="text-xs font-bold text-slate-600">Type</span>
+            <span className="text-xs font-bold text-slate-300">Type</span>
             <select
               name="employment_type"
               value={form.employment_type}
               onChange={updateForm}
-              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#708090] focus:ring-2 focus:ring-[#d3d3d3]"
+              className="h-11 w-full rounded-xl border border-[#283548] bg-[#171F2C] px-3.5 text-sm text-slate-100 outline-none transition-all duration-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:shadow-[0_0_15px_rgba(6,182,212,0.25)] cursor-pointer"
             >
-              <option value="full-time">Full-time</option>
-              <option value="internship">Internship</option>
-              <option value="contract">Contract</option>
+              <option value="full-time" className="bg-[#171F2C] text-slate-100">Full-time</option>
+              <option value="internship" className="bg-[#171F2C] text-slate-100">Internship</option>
+              <option value="contract" className="bg-[#171F2C] text-slate-100">Contract</option>
             </select>
           </label>
 
           <button
             type="submit"
             disabled={!form.query.trim() || searching}
-            className="mt-auto inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#36454f] px-5 text-sm font-bold text-white hover:bg-[#202a30] disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="mt-auto inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-6 text-sm font-bold text-slate-950 shadow-lg shadow-emerald-500/20 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40 transition cursor-pointer"
           >
             {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            {searching ? 'Filtering…' : 'Search jobs'}
+            <span>{searching ? 'Filtering…' : 'Search jobs'}</span>
           </button>
         </div>
       </form>
 
       {warnings.map((warning) => (
-        <div key={warning} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{warning}</div>
+        <div
+          key={warning}
+          className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.1)]"
+        >
+          {warning}
+        </div>
       ))}
-      {message && <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">{message}</div>}
+
+      {message && (
+        <div className="rounded-xl border border-[#283548] bg-[#171F2C] px-4 py-3 text-sm text-slate-300 shadow-md">
+          {message}
+        </div>
+      )}
 
       {/* Dedicated Workspace Navigation Tabs */}
-      <div className="flex border-b border-slate-200">
-        <button
-          type="button"
-          onClick={() => handleTabChange('search')}
-          className={`flex items-center gap-2.5 border-b-2 px-5 py-3.5 text-sm font-bold transition-colors ${
-            activeTab === 'search'
-              ? 'border-[#36454f] text-[#36454f]'
-              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800'
-          }`}
-        >
-          <Search className="h-4 w-4" />
-          <span>Live Search Results</span>
-          {searchResults.length > 0 && (
-            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-              activeTab === 'search' ? 'bg-[#36454f] text-white' : 'bg-slate-100 text-slate-600'
-            }`}>
-              {searchResults.length}
-            </span>
-          )}
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#1F2937] pb-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleTabChange('search')}
+            className={cn(
+              'flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-sm font-bold transition-all cursor-pointer',
+              activeTab === 'search'
+                ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+            )}
+          >
+            <Search className="h-4 w-4" />
+            <span>Live Search Results</span>
+            {searchResults.length > 0 && (
+              <span className="rounded-full bg-cyan-500/20 border border-cyan-500/30 px-2 py-0.5 text-xs font-semibold text-cyan-200">
+                {searchResults.length}
+              </span>
+            )}
+          </button>
 
-        <button
-          type="button"
-          onClick={() => handleTabChange('saved')}
-          className={`flex items-center gap-2.5 border-b-2 px-5 py-3.5 text-sm font-bold transition-colors ${
-            activeTab === 'saved'
-              ? 'border-[#36454f] text-[#36454f]'
-              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800'
-          }`}
+          <button
+            type="button"
+            onClick={() => handleTabChange('saved')}
+            className={cn(
+              'flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-sm font-bold transition-all cursor-pointer',
+              activeTab === 'saved'
+                ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+            )}
+          >
+            <Bookmark className="h-4 w-4" />
+            <span>Saved for Later</span>
+            <span className="rounded-full bg-cyan-500/20 border border-cyan-500/30 px-2 py-0.5 text-xs font-semibold text-cyan-200">
+              {savedJobs.length}
+            </span>
+          </button>
+        </div>
+
+        {/* Animated Health Filter Tabs (layoutId="job-health-filter-pill") */}
+        <div
+          role="tablist"
+          aria-label="Role health filter"
+          className="flex items-center gap-1.5 rounded-2xl border border-[#1F2937] bg-[#0F141C] p-1 shadow-inner"
         >
-          <Bookmark className="h-4 w-4" />
-          <span>Saved for Later</span>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-            activeTab === 'saved' ? 'bg-[#36454f] text-white' : 'bg-slate-100 text-slate-600'
-          }`}>
-            {savedJobs.length}
-          </span>
-        </button>
+          {healthFilterOptions.map((filter) => {
+            const isSelected = healthFilter === filter.id;
+            const FilterIcon = filter.icon;
+            return (
+              <button
+                key={filter.id}
+                type="button"
+                role="tab"
+                aria-selected={isSelected}
+                onClick={() => handleHealthFilterChange(filter.id)}
+                className={cn(
+                  'relative flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-colors duration-200 outline-none select-none cursor-pointer',
+                  isSelected ? 'text-white' : 'text-slate-400 hover:text-slate-200'
+                )}
+              >
+                {isSelected && (
+                  <MotionDiv
+                    layoutId="job-health-filter-pill"
+                    className={cn(
+                      'absolute inset-0 rounded-xl border shadow-sm',
+                      filter.id === 'healthy'
+                        ? 'bg-emerald-500/20 border-emerald-500/40 shadow-emerald-500/10'
+                        : filter.id === 'caution'
+                        ? 'bg-amber-500/20 border-amber-500/40 shadow-amber-500/10'
+                        : 'bg-gradient-to-r from-cyan-500/20 to-emerald-500/20 border-cyan-500/40 shadow-cyan-500/10'
+                    )}
+                    transition={
+                      shouldReduceMotion
+                        ? { duration: 0 }
+                        : { type: 'spring', stiffness: 380, damping: 28 }
+                    }
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-1.5">
+                  {FilterIcon && <FilterIcon className="h-3.5 w-3.5" />}
+                  <span>{filter.label}</span>
+                  <span
+                    className={cn(
+                      'rounded-md px-1.5 py-0.2 text-[10px] font-bold',
+                      isSelected ? 'bg-white/15 text-white' : 'bg-[#1F2937] text-slate-400'
+                    )}
+                  >
+                    {filter.count}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {loading ? (
-        <div className="grid min-h-72 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-[#708090]" /></div>
+        <div className="grid min-h-72 place-items-center">
+          <Loader2 className="h-6 w-6 animate-spin text-cyan-400" />
+        </div>
       ) : baseJobs.length === 0 ? (
         activeTab === 'saved' ? (
           <EmptySavedState onBrowse={() => handleTabChange('search')} />
         ) : (
           <EmptySearchState />
         )
+      ) : displayedJobs.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[#283548] bg-[#0F141C] p-10 text-center text-sm text-slate-400">
+          No roles match the selected filter ({healthFilter === 'healthy' ? 'Healthy Roles ≥ 70' : 'Cautions Only'}).
+        </div>
       ) : (
-        <div className="grid min-h-[35rem] overflow-hidden rounded-2xl border border-slate-200 bg-white lg:grid-cols-[0.78fr_1.22fr]">
-          <section className="flex flex-col border-b border-slate-200 lg:border-b-0 lg:border-r">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <p className="text-sm font-bold text-slate-950">
-                {displayedJobs.length} {activeTab === 'saved' ? 'saved' : 'relevant'} {displayedJobs.length === 1 ? 'role' : 'roles'}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                {activeTab === 'saved'
-                  ? 'Roles you have bookmarked for later review. Subsequent searches will not clear these.'
-                  : 'Select a role to review the source, check requirement match, or save for later.'}
-              </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {displayedJobs.map((job) => (
+            <JobCard
+              key={job.id || job.url}
+              job={job}
+              active={(selectedJob?.id || selectedJob?.url) === (job.id || job.url)}
+              onSelect={() => handleSelectJob(job)}
+              onToggleSave={handleToggleSave}
+              onOpenPack={(j) => setPackTarget(j)}
+              updatingState={updatingJobId === job.id}
+            />
+          ))}
+        </div>
+      )}
 
-              {/* Health Filter Tabs / Pills */}
-              <div className="mt-3 flex flex-wrap gap-1.5" role="tablist" aria-label="Role health filter">
-                <button
-                  type="button"
-                  onClick={() => handleHealthFilterChange('all')}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors ${
-                    healthFilter === 'all'
-                      ? 'bg-[#36454f] text-white shadow-xs'
-                      : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  All Roles ({allCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleHealthFilterChange('healthy')}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors ${
-                    healthFilter === 'healthy'
-                      ? 'bg-emerald-700 text-white shadow-xs'
-                      : 'border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                  }`}
-                >
-                  🛡️ Healthy Only (≥70) ({healthyCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleHealthFilterChange('caution')}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors ${
-                    healthFilter === 'caution'
-                      ? 'bg-amber-700 text-white shadow-xs'
-                      : 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
-                  }`}
-                >
-                  ⚠ Cautions &amp; Overload ({cautionCount})
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 max-h-[42rem] overflow-y-auto p-2">
-              {displayedJobs.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-500">
-                  No roles match the selected filter ({healthFilter === 'healthy' ? 'Healthy Only ≥70' : 'Cautions & Overload'}).
-                </div>
-              ) : (
-                displayedJobs.map((job) => (
-                  <JobListItem
-                    key={job.id || job.url}
-                    job={job}
-                    active={(selectedJob?.id || selectedJob?.url) === (job.id || job.url)}
-                    onSelect={() => setSelectedJob(job)}
-                  />
-                ))
-              )}
-            </div>
-          </section>
-
-          <JobDetails
+      {/* Slide-out Job Details Inspector Drawer wrapped in AnimatePresence */}
+      <StudioMotionDrawer
+        isOpen={isInspectorOpen && Boolean(selectedJob)}
+        onClose={() => setIsInspectorOpen(false)}
+        size="xl"
+        className="sm:max-w-2xl lg:max-w-3xl"
+        showClose={false}
+      >
+        {selectedJob && (
+          <JobInspectorContent
             job={selectedJob}
-            match={matchesByJob[selectedJob?.id]}
-            saving={savingJobId === selectedJob?.id}
-            updatingState={updatingJobId === selectedJob?.id}
-            matching={matchingJobId === selectedJob?.id}
+            match={matchesByJob[selectedJob.id]}
+            saving={savingJobId === selectedJob.id}
+            updatingState={updatingJobId === selectedJob.id}
+            matching={matchingJobId === selectedJob.id}
             onSave={addToApplications}
             onToggleSave={handleToggleSave}
             onDismissJob={handleDismissJob}
             onCheckMatch={checkMatch}
             onOpenPack={(j) => setPackTarget(j)}
+            onClose={() => setIsInspectorOpen(false)}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
           />
-        </div>
-      )}
+        )}
+      </StudioMotionDrawer>
 
-      {/* Universal Paste & Analyze Any Job Modal */}
-      {isPasteModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="paste-job-modal-title"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsPasteModalOpen(false);
-          }}
-        >
-          <div className="relative w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl sm:p-7">
-            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
-              <div>
-                <h2 id="paste-job-modal-title" className="text-lg font-black text-slate-950">
-                  Paste &amp; Analyze Any Job
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  Paste any job description to run an instant 100-point ATS match &amp; Job Reality Red Flag Audit.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsPasteModalOpen(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                aria-label="Close dialog"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      {/* Application Pack Modal wrapped in AnimatePresence */}
+      <AnimatePresence>
+        {packTarget && (
+          <MotionDiv
+            key="application-pack-modal-wrapper"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ApplicationPackModal
+              job={packTarget}
+              onClose={() => setPackTarget(null)}
+            />
+          </MotionDiv>
+        )}
+      </AnimatePresence>
 
-            <form onSubmit={handlePasteJobSubmit} className="mt-5 space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-bold text-slate-700">Role Title</span>
-                  <input
-                    type="text"
-                    value={customJobForm.title}
-                    onChange={(e) => setCustomJobForm({ ...customJobForm, title: e.target.value })}
-                    placeholder="e.g. Junior Backend Engineer"
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#708090] focus:ring-2 focus:ring-[#d3d3d3]"
-                  />
-                </label>
+      {/* Universal Paste & Analyze Any Job Modal wrapped in AnimatePresence */}
+      <AnimatePresence>
+        {isPasteModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="paste-job-modal-title"
+          >
+            {/* Backdrop */}
+            <MotionDiv
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => setIsPasteModalOpen(false)}
+              aria-hidden="true"
+            />
 
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-bold text-slate-700">Company</span>
-                  <input
-                    type="text"
-                    value={customJobForm.company}
-                    onChange={(e) => setCustomJobForm({ ...customJobForm, company: e.target.value })}
-                    placeholder="e.g. Acme Health"
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#708090] focus:ring-2 focus:ring-[#d3d3d3]"
-                  />
-                </label>
-              </div>
-
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold text-slate-700">Location</span>
-                <input
-                  type="text"
-                  value={customJobForm.location}
-                  onChange={(e) => setCustomJobForm({ ...customJobForm, location: e.target.value })}
-                  placeholder="e.g. Remote or Bengaluru"
-                  className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#708090] focus:ring-2 focus:ring-[#d3d3d3]"
-                />
-              </label>
-
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold text-slate-700">
-                  Job Description <span className="text-rose-600">*</span>
-                </span>
-                <textarea
-                  rows={6}
-                  required
-                  value={customJobForm.description}
-                  onChange={(e) => setCustomJobForm({ ...customJobForm, description: e.target.value })}
-                  placeholder="Paste raw JD text, requirements, or responsibilities here..."
-                  className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-[#708090] focus:ring-2 focus:ring-[#d3d3d3]"
-                />
-              </label>
-
-              <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-3">
+            {/* Modal Dialog */}
+            <MotionDiv
+              initial={
+                shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 10 }
+              }
+              animate={
+                shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }
+              }
+              exit={
+                shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 10 }
+              }
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+              className="relative w-full max-w-xl rounded-2xl border border-[#283548] bg-[#0F141C] p-6 text-slate-100 shadow-2xl sm:p-7 z-10"
+            >
+              <div className="flex items-start justify-between border-b border-[#1F2937] pb-4">
+                <div>
+                  <h2 id="paste-job-modal-title" className="text-lg font-black text-slate-100">
+                    Paste &amp; Analyze Any Job
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Paste any job description to run an instant 100-point ATS match &amp; Job Reality Red Flag Audit.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => setIsPasteModalOpen(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                  className="rounded-xl p-1.5 text-slate-400 hover:bg-white/[0.06] hover:text-slate-100 transition-colors cursor-pointer"
+                  aria-label="Close dialog"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!customJobForm.description.trim() || isSubmittingCustomJob}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#36454f] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#202a30] disabled:cursor-not-allowed disabled:bg-slate-300 transition-colors"
-                >
-                  {isSubmittingCustomJob ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  {isSubmittingCustomJob ? 'Auditing role...' : 'Analyze & Save Job'}
+                  <X className="h-5 w-5" />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handlePasteJobSubmit} className="mt-5 space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold text-slate-300">Role Title</span>
+                    <input
+                      type="text"
+                      value={customJobForm.title}
+                      onChange={(e) =>
+                        setCustomJobForm({ ...customJobForm, title: e.target.value })
+                      }
+                      placeholder="e.g. Junior Backend Engineer"
+                      className="h-10 w-full rounded-xl border border-[#283548] bg-[#171F2C] px-3 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+                    />
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold text-slate-300">Company</span>
+                    <input
+                      type="text"
+                      value={customJobForm.company}
+                      onChange={(e) =>
+                        setCustomJobForm({ ...customJobForm, company: e.target.value })
+                      }
+                      placeholder="e.g. Acme Health"
+                      className="h-10 w-full rounded-xl border border-[#283548] bg-[#171F2C] px-3 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+                    />
+                  </label>
+                </div>
+
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-bold text-slate-300">Location</span>
+                  <input
+                    type="text"
+                    value={customJobForm.location}
+                    onChange={(e) =>
+                      setCustomJobForm({ ...customJobForm, location: e.target.value })
+                    }
+                    placeholder="e.g. Remote or Bengaluru"
+                    className="h-10 w-full rounded-xl border border-[#283548] bg-[#171F2C] px-3 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+                  />
+                </label>
+
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-bold text-slate-300">
+                    Job Description <span className="text-rose-400">*</span>
+                  </span>
+                  <textarea
+                    rows={6}
+                    required
+                    value={customJobForm.description}
+                    onChange={(e) =>
+                      setCustomJobForm({ ...customJobForm, description: e.target.value })
+                    }
+                    placeholder="Paste raw JD text, requirements, or responsibilities here..."
+                    className="w-full rounded-xl border border-[#283548] bg-[#171F2C] p-3 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+                  />
+                </label>
+
+                <div className="flex items-center justify-end gap-3 border-t border-[#1F2937] pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsPasteModalOpen(false)}
+                    className="rounded-xl border border-[#283548] px-4 py-2.5 text-sm font-semibold text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!customJobForm.description.trim() || isSubmittingCustomJob}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-5 py-2.5 text-sm font-bold text-slate-950 shadow-lg shadow-emerald-500/20 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40 transition cursor-pointer"
+                  >
+                    {isSubmittingCustomJob ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                    <span>{isSubmittingCustomJob ? 'Auditing role...' : 'Analyze & Save Job'}</span>
+                  </button>
+                </div>
+              </form>
+            </MotionDiv>
           </div>
-        </div>
-      )}
-      {packTarget && (
-        <ApplicationPackModal
-          job={packTarget}
-          onClose={() => setPackTarget(null)}
-        />
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 };
-
-
-const JobListItem = ({ job, active, onSelect }) => {
-  const score = job.job_health?.role_health_score;
-  const isHealthy = score !== undefined && score >= 80;
-  const isModerate = score !== undefined && score >= 55 && score < 80;
-
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`w-full rounded-xl border p-4 text-left transition-colors ${active ? 'border-[#d3d3d3] bg-[#eef0f1]' : 'border-transparent hover:bg-slate-50'}`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="font-bold text-slate-950">{job.title}</h2>
-          <p className="mt-1 text-sm text-slate-600">{job.company}</p>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {job.user_state === 'saved' && (
-            <Bookmark className="h-4 w-4 text-[#36454f] fill-[#36454f]" aria-label="Saved job" />
-          )}
-          {job.verification_status === 'verified' && (
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-label="Verified job page" />
-          )}
-          {score !== undefined && (
-            <span
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
-                isHealthy
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : isModerate
-                  ? 'bg-amber-50 text-amber-700 border-amber-200'
-                  : 'bg-rose-50 text-rose-700 border-rose-200'
-              }`}
-              title={`Role Health: ${score}/100 (${job.job_health?.health_verdict || 'Audited'})`}
-            >
-              {score} pts
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
-        <span>{job.location || 'Location not specified'}</span>
-        {job.employment_type && <span>{job.employment_type}</span>}
-      </div>
-    </button>
-  );
-};
-
-
-const JobDetails = ({ job, match, saving, updatingState, matching, onSave, onToggleSave, onDismissJob, onCheckMatch, onOpenPack }) => {
-  if (!job) return <div className="grid place-items-center p-10 text-sm text-slate-500">Choose a job to review it.</div>;
-
-  const isSaved = job.user_state === 'saved';
-
-  return (
-    <article className="p-5 sm:p-7 lg:p-9">
-      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${job.verification_status === 'verified' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-              {job.verification_status === 'verified' ? 'Live page verified' : 'Provider job page'}
-            </span>
-            {isSaved && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#eef0f1] px-2.5 py-1 text-xs font-bold text-[#36454f]">
-                <Bookmark className="h-3 w-3 fill-[#36454f]" /> Saved for Later
-              </span>
-            )}
-            {job.source && <span className="text-xs text-slate-500">via {job.source}</span>}
-          </div>
-          <h2 className="mt-4 text-2xl font-black tracking-[-0.03em] text-slate-950">{job.title}</h2>
-          <p className="mt-1 font-bold text-slate-600">{job.company}</p>
-        </div>
-
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => onOpenPack(job)}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-900 bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 transition"
-            title="1-Click Complete Application Pack (ATS Resume, Cover Letter, Multi-Channel Outreach Toolkit)"
-            aria-label="Open 1-Click Complete Application Pack"
-          >
-            📦 Application Pack
-          </button>
-          {job.id && (
-            <button
-              type="button"
-              onClick={() => onToggleSave(job)}
-              disabled={updatingState}
-              className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-bold transition-colors ${
-                isSaved
-                  ? 'border-[#36454f] bg-[#eef0f1] text-[#36454f] hover:bg-slate-200'
-                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-              } disabled:cursor-not-allowed disabled:opacity-50`}
-              aria-label={isSaved ? 'Unsave job' : 'Save job'}
-            >
-              <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-[#36454f]' : ''}`} />
-              {isSaved ? 'Saved' : 'Save job'}
-            </button>
-          )}
-          {job.id && (
-            <button
-              type="button"
-              onClick={() => onDismissJob(job)}
-              disabled={updatingState}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:text-slate-300"
-              aria-label="Dismiss job"
-            >
-              <X className="h-4 w-4" /> Dismiss
-            </button>
-          )}
-          {job.id && (
-            <button
-              type="button"
-              onClick={() => onSave(job)}
-              disabled={saving}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#36454f] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#202a30] disabled:bg-slate-300"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              {saving ? 'Saving…' : 'Save to applications'}
-            </button>
-          )}
-          {job.url && (
-            <a
-              href={job.url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#36454f] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#202a30]"
-            >
-              View original <ArrowUpRight className="h-4 w-4" />
-            </a>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-7 flex flex-wrap gap-2 text-xs font-bold text-slate-600">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5"><MapPin className="h-3.5 w-3.5" /> {job.location || 'Not specified'}</span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5"><BriefcaseBusiness className="h-3.5 w-3.5" /> {job.employment_type || 'Type not specified'}</span>
-      </div>
-
-      {job.job_health && <RoleHealthCard health={job.job_health} />}
-
-      <div className="mt-8 border-t border-slate-200 pt-7">
-        <h3 className="text-sm font-bold text-slate-950">Job description</h3>
-        <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-600">{job.description || 'The provider did not return a full description. Review the original listing before applying.'}</p>
-      </div>
-
-      <div className="mt-8 rounded-xl border border-[#d3d3d3] bg-[#eef0f1] p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div><p className="text-sm font-bold text-[#202a30]">Explainable resume match</p><p className="mt-1 text-xs leading-5 text-[#36454f]">Uses your latest resume and shows the evidence behind the result.</p></div>
-          <button type="button" onClick={() => onCheckMatch(job)} disabled={!job.id || matching} className="inline-flex items-center gap-2 rounded-lg bg-[#36454f] px-3 py-2 text-xs font-bold text-white disabled:bg-slate-300">{matching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}{matching ? 'Checking…' : 'Check my match'}</button>
-        </div>
-        {match && <MatchSummary match={match} jobId={job.id} />}
-      </div>
-    </article>
-  );
-};
-
-
-const RoleHealthCard = ({ health }) => {
-  if (!health) return null;
-
-  const score = health.role_health_score ?? 100;
-  const isHealthy = score >= 80;
-  const isModerate = score >= 55 && score < 80;
-
-  const barColor = isHealthy ? 'bg-emerald-500' : isModerate ? 'bg-amber-500' : 'bg-rose-500';
-  const badgeClass = isHealthy
-    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-    : isModerate
-    ? 'bg-amber-50 text-amber-800 border-amber-200'
-    : 'bg-rose-50 text-rose-800 border-rose-200';
-
-  const ghostRisk = health.ghost_job_risk || 'Low';
-  const isGhostHigh = ghostRisk === 'High';
-  const isGhostMod = ghostRisk === 'Moderate';
-  const ghostBadgeClass = isGhostHigh
-    ? 'text-rose-700 bg-rose-50 border-rose-200'
-    : isGhostMod
-    ? 'text-amber-700 bg-amber-50 border-amber-200'
-    : 'text-emerald-700 bg-emerald-50 border-emerald-200';
-
-  const redFlags = health.red_flags || [];
-  const greenFlags = health.green_flags || [];
-
-  const techCount = health.detected_tech_count ?? 0;
-  const isTechOverload = techCount >= 10 || redFlags.some((f) => /overload|sprawl/i.test(f));
-  const burnoutPatterns = /burnout|crunch|weekend|hats|rockstar|ninja|wizard|guru|24\/7|urgent/i;
-  const burnoutFlags = redFlags.filter((f) => burnoutPatterns.test(f));
-  const boundaryCautions = redFlags.filter((f) => !burnoutPatterns.test(f));
-
-  return (
-    <section className="mt-7 rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
-      <div className="flex flex-col gap-3 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="h-5 w-5 text-[#36454f]" />
-            <h3 className="text-sm font-bold text-slate-950">Role Health &amp; Red Flag Auditor</h3>
-          </div>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Automated reality check on tech stack requirements, burnout flags, and ghost job patterns.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <div className="flex items-baseline justify-end gap-1">
-              <span className="text-2xl font-black text-slate-950">{score}</span>
-              <span className="text-xs font-semibold text-slate-500">/100</span>
-            </div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Health Score</span>
-          </div>
-
-          <span className={`rounded-full border px-3 py-1 text-xs font-bold ${badgeClass}`}>
-            {health.health_verdict}
-          </span>
-        </div>
-      </div>
-
-      {/* 0-100 Dynamic Visual Progress Meter */}
-      <div className="mt-4 rounded-xl border border-slate-200/70 bg-white p-3.5 shadow-2xs">
-        <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-          <span>Role Reality Health Meter</span>
-          <span className={isHealthy ? 'text-emerald-700' : isModerate ? 'text-amber-700' : 'text-rose-700'}>
-            {score} / 100 ({score >= 70 ? 'Healthy Role' : score >= 55 ? 'Caution Advised' : 'High Risk Role'})
-          </span>
-        </div>
-        <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-            style={{ width: `${Math.max(5, Math.min(100, score))}%` }}
-          />
-        </div>
-        <div className="mt-1.5 flex justify-between text-[10px] font-medium text-slate-400">
-          <span>0 (High Risk)</span>
-          <span className="text-amber-600">55 (Caution)</span>
-          <span className="font-bold text-emerald-600">70+ (Healthy Threshold)</span>
-          <span>100</span>
-        </div>
-      </div>
-
-      {/* Prominent Ghost Job Risk Alert Banner */}
-      {isGhostHigh && (
-        <div className="mt-3 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-rose-950">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
-          <div className="text-xs">
-            <p className="font-bold text-rose-900">High Ghost Job Risk Detected</p>
-            <p className="mt-0.5 text-rose-800 leading-relaxed">
-              This posting appears to be from a confidential staffing agency, a placeholder repost, or has a truncated description (&lt;35 words). Confirm the posting on the company&apos;s direct careers portal before investing significant effort.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {isGhostMod && (
-        <div className="mt-3 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-amber-950">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-          <div className="text-xs">
-            <p className="font-bold text-amber-900">Moderate Ghost Job / Speculative Pipeline Risk</p>
-            <p className="mt-0.5 text-amber-800 leading-relaxed">
-              Signals suggest this might be speculative talent pipeline harvesting rather than an active immediate headcount seat.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Junior Tech Stack Overload Gauge */}
-      <div className="mt-3 rounded-xl border border-slate-200/70 bg-white p-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-xs">
-            <span className="font-bold text-slate-900">Junior Tech Stack Overload Gauge: </span>
-            <span className="font-semibold text-slate-600">
-              {techCount} technologies detected
-            </span>
-          </div>
-          <span
-            className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${
-              isTechOverload
-                ? 'border-rose-200 bg-rose-50 text-rose-700'
-                : techCount >= 2 && techCount <= 6
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-slate-200 bg-slate-50 text-slate-700'
-            }`}
-          >
-            {isTechOverload
-              ? '⚠ Overload Alert'
-              : techCount >= 2 && techCount <= 6
-              ? '✓ Realistic Early-Career Scope'
-              : 'Standard Scope'}
-          </span>
-        </div>
-        <p className="mt-1 text-xs text-slate-500">
-          {isTechOverload
-            ? 'Early-career roles requiring 10+ disparate tools frequently conceal unrealistic expectations or multiple roles merged into one.'
-            : techCount >= 2 && techCount <= 6
-            ? 'Focused requirements (2-6 tools) provide healthy onboarding and focused depth for entry-level talent.'
-            : 'Review technology list to ensure alignment with your current stack and growth roadmap.'}
-        </p>
-      </div>
-
-      {/* Burnout Phrasing Warnings */}
-      {burnoutFlags.length > 0 && (
-        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50/60 p-3.5">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-rose-900">
-            <AlertTriangle className="h-4 w-4 text-rose-600" />
-            <span>Burnout Phrasing &amp; Culture Warnings ({burnoutFlags.length})</span>
-          </div>
-          <ul className="mt-2 space-y-1.5 text-xs text-rose-950">
-            {burnoutFlags.map((flag, idx) => (
-              <li key={idx} className="flex items-start gap-2">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
-                <span>{flag}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Ghost Job Risk Indicator */}
-      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold">
-        <div className="flex items-center gap-1.5">
-          <span className="text-slate-500">Ghost Job Risk:</span>
-          <span className={`rounded-md border px-2 py-0.5 text-xs font-bold ${ghostBadgeClass}`}>
-            {ghostRisk} Risk
-          </span>
-        </div>
-      </div>
-
-      {/* Flags Breakdown */}
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-3.5">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-rose-900">
-            <AlertTriangle className="h-4 w-4 text-rose-600" />
-            <span>Role Boundaries &amp; Cautions ({boundaryCautions.length})</span>
-          </div>
-          {boundaryCautions.length > 0 ? (
-            <ul className="mt-2 space-y-1.5 text-xs text-rose-950">
-              {boundaryCautions.map((flag, idx) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
-                  <span>{flag}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-xs italic text-rose-700">No disguised roles or boundary ambiguities detected.</p>
-          )}
-        </div>
-
-        <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3.5">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            <span>Workplace Culture Green Flags ({greenFlags.length})</span>
-          </div>
-          {greenFlags.length > 0 ? (
-            <ul className="mt-2 space-y-1.5 text-xs text-emerald-950">
-              {greenFlags.map((flag, idx) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-                  <span>{flag}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-xs italic text-emerald-700">Standard benefits and role scoping.</p>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-};
-
-
-const MatchSummary = ({ match, jobId }) => (
-  <div className="mt-4 border-t border-[#d3d3d3] pt-4">
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div><p className="text-2xl font-black text-[#202a30]">{Math.round(match.coverage_percent)}%</p><p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#36454f]">Detected requirement coverage</p></div>
-      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${match.eligibility_status === 'eligible' ? 'bg-emerald-100 text-emerald-800' : match.eligibility_status === 'not_eligible' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>{match.eligibility_status.replace('_', ' ')}</span>
-    </div>
-    <ul className="mt-3 space-y-1 text-xs leading-5 text-[#36454f]">
-      {match.eligibility_reasons.map((reason) => <li key={reason}>• {reason}</li>)}
-    </ul>
-    <div className="mt-3 flex flex-wrap gap-2">
-      {match.matched_skills.map((skill) => <span key={skill} className="rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-bold text-emerald-800">Evidence: {skill}</span>)}
-      {match.missing_skills.map((skill) => <span key={skill} className="rounded-full bg-white px-2 py-1 text-[11px] font-bold text-amber-800">Gap: {skill}</span>)}
-    </div>
-    <Link to={`/profile/tailor?job=${jobId}`} className="mt-4 inline-flex rounded-lg bg-[#36454f] px-3 py-2 text-xs font-bold text-white">Tailor resume for this job</Link>
-  </div>
-);
-
-
-const EmptySearchState = () => (
-  <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-    <BriefcaseBusiness className="mx-auto h-9 w-9 text-slate-300" />
-    <h2 className="mt-4 font-bold text-slate-950">Search for your first role</h2>
-    <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">Try a clear role such as “frontend developer”, choose India or a city, and select full-time or internship.</p>
-  </div>
-);
-
-
-const EmptySavedState = ({ onBrowse }) => (
-  <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-    <Bookmark className="mx-auto h-9 w-9 text-slate-300" />
-    <h2 className="mt-4 font-bold text-slate-950">No saved jobs yet</h2>
-    <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-      When searching for jobs in the Live Search Results tab, click "Save job" on any role to keep it permanently saved in this tab across searches.
-    </p>
-    <button
-      type="button"
-      onClick={onBrowse}
-      className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#36454f] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#202a30]"
-    >
-      <Search className="h-4 w-4" /> Browse Live Search Results
-    </button>
-  </div>
-);
 
 export default SearchJobs;
