@@ -28,6 +28,16 @@
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
 
+  --color-studio-canvas: #080B0F;
+  --color-studio-panel: #0F141C;
+  --color-studio-panel-elevated: #171F2C;
+  --color-studio-border: #1F2937;
+  --color-studio-border-glow: rgba(56, 189, 248, 0.2);
+  --color-studio-emerald: #10B981;
+  --color-studio-cyan: #06B6D4;
+  --color-studio-amber: #F59E0B;
+  --color-studio-crimson: #EF4444;
+
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
@@ -80,14 +90,59 @@
   }
 }
 
+:root {
+  /* Existing legacy variables for test compatibility */
+  --career-charcoal: #36454f;
+  --career-slate: #708090;
+  --career-line: #d3d3d3;
+  --career-canvas: #f4f5f5;
+  --career-white: #ffffff;
+
+  /* Cyber Obsidian Studio Tokens */
+  --studio-canvas: #080B0F;
+  --studio-panel: #0F141C;
+  --studio-panel-elevated: #171F2C;
+  --studio-border: #1F2937;
+  --studio-border-glow: rgba(56, 189, 248, 0.2);
+  --studio-emerald: #10B981;
+  --studio-cyan: #06B6D4;
+  --studio-amber: #F59E0B;
+  --studio-crimson: #EF4444;
+}
+
+/* Studio Glass & Surface Utilities */
+.studio-canvas {
+  background-color: #080B0F;
+  color: #F8FAFC;
+}
+
+.studio-panel {
+  background-color: #0F141C;
+  border: 1px solid #1F2937;
+}
+
+.studio-panel-elevated {
+  background-color: #171F2C;
+  border: 1px solid #283548;
+}
+
+.studio-glass {
+  background: rgba(15, 20, 28, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.studio-glow-emerald {
+  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.25);
+}
+
+.studio-glow-cyan {
+  box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.25);
+}
+
 @layer base {
   :root {
-    --career-charcoal: #36454f;
-    --career-slate: #708090;
-    --career-line: #d3d3d3;
-    --career-canvas: #f4f5f5;
-    --career-white: #ffffff;
-
     --background: 210 8% 96%;
     --foreground: 203 19% 26%;
     --card: 0 0% 100%;

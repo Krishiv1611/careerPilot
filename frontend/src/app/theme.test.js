@@ -28,6 +28,64 @@ test('frontend declares the approved Modern Minimalist palette', () => {
 });
 
 
+test('frontend declares the Cyber Obsidian Studio tokens and utility classes', () => {
+  const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8');
+
+  const requiredTokens = [
+    '--studio-canvas',
+    '--studio-panel',
+    '--studio-panel-elevated',
+    '--studio-border',
+    '--studio-border-glow',
+    '--studio-emerald',
+    '--studio-cyan',
+    '--studio-amber',
+    '--studio-crimson',
+  ];
+
+  for (const token of requiredTokens) {
+    assert.equal(css.includes(token), true, `Missing Cyber Obsidian token: ${token}`);
+  }
+
+  const requiredClasses = [
+    '.studio-canvas',
+    '.studio-panel',
+    '.studio-panel-elevated',
+    '.studio-glass',
+    '.studio-glow-emerald',
+    '.studio-glow-cyan',
+  ];
+
+  for (const className of requiredClasses) {
+    assert.equal(css.includes(className), true, `Missing Studio utility class: ${className}`);
+  }
+});
+
+
+test('frontend exports reusable Studio motion primitives', () => {
+  const primitivesContent = readFileSync(
+    join(sourceRoot, 'components', 'studio', 'StudioPrimitives.jsx'),
+    'utf8'
+  );
+
+  const requiredExports = [
+    'export function StudioCard',
+    'export function StudioBadge',
+    'export function StudioButton',
+    'export function StudioPillTab',
+    'export function StudioMotionDrawer',
+  ];
+
+  for (const exp of requiredExports) {
+    assert.equal(
+      primitivesContent.includes(exp),
+      true,
+      `Missing Studio motion primitive export: ${exp}`
+    );
+  }
+});
+
+
 test('frontend no longer uses the previous blue product palette', () => {
   const oldColors = ['#17324d', '#245fce', '#1e51b3', '#10263a', '#102a43', '#f8f8f4', '#f3f1ea'];
   const violations = [];
